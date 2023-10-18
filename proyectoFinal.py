@@ -11,22 +11,24 @@ class Inventario:
         self.path = r"@/home/alvaroca/code/python/OOP/Inventario" #Esto se debe quitar antes de entregar
         # self.db_name = self.path + r'/Inventario.db'
         self.db_name = "Inventario.db" # esto se debe quitar
-        ancho=800;alto=700 # Dimensione de la pantalla
+        # Dimensiones de la pantalla
+        ancho=800
+        alto=700
         self.actualiza = None
 
         # Crea ventana principal
-        self.win = tk.Tk() 
-        escalaMin = 4
-        self.win.minsize(ancho//escalaMin, alto//escalaMin)
+        self.win = tk.Tk()
+        escala_min = 4
+        self.win.minsize(ancho//escala_min, alto//escala_min)
         self.win.geometry(f"{ancho}x{alto}")
         icon_name = self.path + r"/f2.xbm" #Cambiar a solo "f2.ico" para entregar
         self.win.iconbitmap(icon_name)
-        self.win.title("Manejo de Proveedores") 
+        self.win.title("Manejo de Proveedores")
 
         #Centra la pantalla
         self.centra(self.win,ancho,alto)
 
-        # Contenedor de widgets   
+        # Contenedor de widgets
         self.label_frame = tk.LabelFrame(master)
         self.label_frame.configure(background="#e0e0e0",font="{Arial} 12 {bold}",labelanchor="n")
         self.tabs = ttk.Notebook(self.label_frame)
@@ -34,7 +36,7 @@ class Inventario:
 
         #Main frame
         self.main_frame = ttk.Frame(self.tabs)
-        
+
         #Frame de datos
         self.frm1 = ttk.Frame(self.main_frame)
         self.frm1.configure(height=200, width=200)
@@ -134,8 +136,8 @@ class Inventario:
         self.fecha.grid(row=7, column=13, sticky="w", pady=25)
         for i in ("Button-1", "Left", "Right", "Key","BackSpace", "space"):
             self.fecha.bind(f"<{i}>", self.validaFecha)
-        self.fecha.bind(f"<FocusOut>", self.fechaFocusOut)
-        self.fecha.bind(f"<FocusIn>", self.fechaFocusIn)
+        self.fecha.bind("<FocusOut>", self.fechaFocusOut)
+        self.fecha.bind("<FocusIn>", self.fechaFocusIn)
         self.fecha_mal = False
         
         #Separador
@@ -249,15 +251,15 @@ class Inventario:
         # widget Principal del sistema
         self.mainwindow = self.label_frame
 
-    #Fución de manejo de eventos del sistema
     def run(self):
+        """Fución de manejo de eventos del sistema"""
         self.mainwindow.mainloop()
 
-    ''' ......... Métodos utilitarios del sistema .............'''
+    # Métodos utilitarios del sistema-----------------------------------------
     #Rutina de centrado de pantalla
-    def centra(self,win: tk.Tk,ancho,alto): 
+    def centra(self,win: tk.Tk,ancho,alto):
         """ centra las ventanas en la pantalla """ 
-        x = win.winfo_screenwidth() // 2 - ancho // 2 
+        x = win.winfo_screenwidth() // 2 - ancho // 2
         y = win.winfo_screenheight() // 2 - alto // 2
         win.geometry(f'{ancho}x{alto}+{x}+{y}')
         # win.deiconify() # Se usa para restaurar la ventana
@@ -265,11 +267,10 @@ class Inventario:
     # Validaciones del sistema
     def validaIdNit(self):
         ''' Valida que la longitud no sea mayor a 15 caracteres'''
-        id = self.idNit_sv.get()
-        if len(id) > 15:
-            self.idNit_sv.set(id[:15])
+        if len(self.idNit.get()) > 15:
+            self.idNit.delete(16)
             mssg.showerror('Atención!!','.. ¡Máximo 15 caracteres! ..')
-    
+
     def isFechaValida(self)-> tuple[bool,str]:
         """ Revisa si la fecha es valida\n
             retorna: 
@@ -277,23 +278,23 @@ class Inventario:
                 -un str como la razon de porque es invalido ("" si es valido)"""
         try:
             dia, mes, año = (int(i) for i in self.fecha_sv.get().split("/"))
-        except:
+        except ValueError:
             return False, "Las fechas deben estar compuestas solo por números enteros positivos"
-        esBiciesto = (año%4 == 0) and ((año%100 != 0) or (año%400 == 0))
-        maxDia = 31
+        es_biciesto = (año%4 == 0) and ((año%100 != 0) or (año%400 == 0))
+        max_dia = 31
         if mes > 12 or mes < 0:
             return False, "El mes debe ser un número entero entre 12 y 0"
-        elif mes == 2: maxDia =28 + (1 if esBiciesto else 0) #si es biciesto y el mes es febrero 
+        elif mes == 2: max_dia =28 + (1 if es_biciesto else 0) #si es biciesto y el mes es febrero 
         #Enero, Marzo, Mayo, Julio,
-        elif mes in (1,3,5,7,9,10,12): maxDia = 30
+        elif mes in (1,3,5,7,9,10,12): max_dia = 30
         if dia < 0:
             return False, "El día debe ser un número entero positivo"
-        if dia > maxDia or dia < 0:
+        if dia > max_dia or dia < 0:
             mes_str = ( "Enero", "Febrero", "Marzo", "Abril", "Mayo",
                         "Junio", "Julio", "Agosto", "Septiembre",
                         "Octubre", "Noviembre", "Diciembre"
                       )[mes]
-            return False, f"Día invalido para {mes_str}, el maximo es {maxDia}"
+            return False, f"Día invalido para {mes_str}, el maximo es {max_dia}"
         return True, ""
     
     def fechaFocusIn(self, _):
@@ -312,8 +313,8 @@ class Inventario:
         #nota: esta funcion ocurre antes de que se le aplicen cambios al entry por el usuario
         
         brk = False #si es True interrumpe la entrada de valores a self.fecha
-        if event.type == 1: position = self.fecha.index()
-        else: position = self.fecha.index(tk.INSERT) #El indice donde se encuentra el cusor
+        if event.type == 1: position = self.fecha.index("insert")
+        else: position = self.fecha.index("insert") #El indice donde se encuentra el cusor
         
         #modificacion del texto dentro del entry -----------------------------------
         #si esta entrando un numero
