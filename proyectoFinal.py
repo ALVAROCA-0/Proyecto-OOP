@@ -176,8 +176,6 @@ class Inventario:
         self.treeProductos.heading("Precio",      anchor="center", text='Precio')
         self.treeProductos.heading("Fecha",       anchor="center", text='Fecha')
 
-        #Carga los datos en treeProductos
-        self.lee_treeProductos() 
         self.treeProductos.grid(row=11, column=0, columnspan=16, sticky="news")
 
         #Scrollbar en el eje Y de treeProductos
@@ -215,7 +213,7 @@ class Inventario:
 
         #Botón para Buscar un Proveedor
         self.btnBuscar = ttk.Button(self.frm2)
-        self.btnBuscar.configure(text='Buscar')
+        self.btnBuscar.configure(text='Buscar', command=self.buscar)
         self.btnBuscar.grid(row=1, column=trailingCols)
 
         #Botón para Guardar los datos
@@ -356,7 +354,8 @@ class Inventario:
             #reposicionar el cursor despues de modificar el entry
             self.fecha.after_idle(self.fecha.icursor, position)
             brk = True
-        elif len(event.char)==1:
+        elif len(event.char) >= 1 and int(event.type) != 4:
+            print(event.type)
             #borra el ultimo caracter digitado
             brk = True
         #movimiento por flechas ----------------------------------------------------
@@ -441,15 +440,17 @@ class Inventario:
             conn.commit()
         return result
 
-    def lee_treeProductos(self):
+    def lee_treeProductos(self, id:str):
         ''' Limpia la Tabla tablaTreeView y Carga los datos de nuevo '''
         tabla_TreeView = self.treeProductos.get_children()
         for linea in tabla_TreeView:
             self.treeProductos.delete(linea) # Límpia la filas del TreeView
         
+        #si dan una id solo mostrar los datos con esa id
+        if id != "": id = f" WHERE idNit != {id}"
         # Seleccionando los datos de la BD
         # query = '''SELECT * from Proveedor INNER JOIN Productos WHERE idNitProv = idNit ORDER BY idNitProv'''
-        query = "SELECT * FROM Productos ORDER BY idNit" # hace lo mismo con menos
+        query = f"SELECT * FROM Productos{id} ORDER BY idNit;" # hace lo mismo con menos
         db_rows = self.run_Query(query) # db_rows contine la vista del query
         
         # Insertando los datos de la BD en treeProductos de la pantalla
@@ -548,7 +549,7 @@ class Inventario:
                             print(query_proveedor)
                             cursor.execute(query_proveedor)
                     else: #si no añadir los nuevos datos a Proveedor
-                        row_Proveedor = f"{id}, {razon}, {ciudad}"
+                        row_Proveedor = f'"{id}", "{razon}", "{ciudad}"'
                         query_proveedor = f"INSERT INTO Proveedor VALUES({row_Proveedor});"
                         print(query_proveedor)
                         cursor.execute(query_proveedor)
@@ -560,6 +561,11 @@ class Inventario:
                 mssg.showinfo("Resultado de la acción", "Se añadieron los items a la base de datos correctamente")
                 self.lee_treeProductos()
 
+    def buscar(self) :
+        id = self.idNit.get()
+        self.lee_treeProductos(id)
+        
+            
     def editaTreeProveedores(self, event=None):
         ''' Edita una tupla del TreeView'''
         pass
