@@ -441,13 +441,14 @@ class Inventario:
         return result
 
     def lee_treeProductos(self, id:str):
-        ''' Limpia la Tabla tablaTreeView y Carga los datos de nuevo '''
+        ''' Limpia la Tabla tablaTreeView y Carga los datos de nuevo
+        Si se provee un id solo carga las filas con ese id/Nit'''
         tabla_TreeView = self.treeProductos.get_children()
         for linea in tabla_TreeView:
             self.treeProductos.delete(linea) # Límpia la filas del TreeView
         
         #si dan una id solo mostrar los datos con esa id
-        if id != "": id = f" WHERE idNit != {id}"
+        if id != "": id = f' WHERE idNit = "{id}"'
         # Seleccionando los datos de la BD
         # query = '''SELECT * from Proveedor INNER JOIN Productos WHERE idNitProv = idNit ORDER BY idNitProv'''
         query = f"SELECT * FROM Productos{id} ORDER BY idNit;" # hace lo mismo con menos
@@ -563,7 +564,9 @@ class Inventario:
 
     def buscar(self) :
         id = self.idNit.get()
-        self.lee_treeProductos(id)
+        idExiste = bool(tuple(self.run_Query(f'SELECT count(*) FROM Productos WHERE idNit = "{id}"'))[0][0])
+        if idExiste: self.lee_treeProductos(id)
+        else: mssg.showerror("Error Id", f"No existe el id: {id}")
         
             
     def editaTreeProveedores(self, event=None):
