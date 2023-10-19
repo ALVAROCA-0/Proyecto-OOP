@@ -8,7 +8,6 @@ import sqlite3
 class Inventario:
     def __init__(self, master=None):
         # self.path = r'X:/Users/ferna/Documents/UNal/Alumnos/2023_S2/ProyInventario'
-        self.path = r"@/home/alvaroca/code/python/OOP/Inventario" #Esto se debe quitar antes de entregar
         # self.db_name = self.path + r'/Inventario.db'
         self.db_name = "Inventario.db" # esto se debe quitar
         # Dimensiones de la pantalla
@@ -18,10 +17,9 @@ class Inventario:
 
         # Crea ventana principal
         self.win = tk.Tk()
-        escala_min = 4
-        self.win.minsize(ancho//escala_min, alto//escala_min)
+        self.win.minsize(int(ancho/1.25), alto//2)
         self.win.geometry(f"{ancho}x{alto}")
-        icon_name = self.path + r"/f2.xbm" #Cambiar a solo "f2.ico" para entregar
+        icon_name = "f2.ico"
         self.win.iconbitmap(icon_name)
         self.win.title("Manejo de Proveedores")
 
@@ -42,7 +40,9 @@ class Inventario:
         self.frm1.configure(height=200, width=200)
         self.frm1.columnconfigure((0,3,4,6,7,8,9,10,11,13,14,15), weight=1)
         # self.frm1.columnconfigure((3,4,7,9,10,14), minsize=30)
-        self.frm1.rowconfigure((11,), weight=1)
+        self.frm1.rowconfigure((1,2,5,11), weight=1)
+        self.frm1.rowconfigure((0,4,7), weight=1, minsize=70)
+        self.frm1.rowconfigure((11,), weight=1, minsize=300)
 
         #Etiqueta IdNit del Proveedor
         self.lblIdNit = ttk.Label(self.frm1)
@@ -54,8 +54,7 @@ class Inventario:
         self.idNit = ttk.Entry(self.frm1, textvariable=self.idNit_sv)
         self.idNit.configure(takefocus=True, width=15)
         self.idNit.grid(row=0, column=2, columnspan=2, sticky="w", pady=25)
-        self.idNit.bind("<BackSpace>", lambda _:self.idNit.delete(len(self.idNit.get())),'end')
-        self.idNit_sv.trace_add("write", lambda *_: self.validaIdNit())
+        self.idNit.bind("<Key>", self.validaIdNit)
 
         #Etiqueta razón social del Proveedor
         self.lblRazonSocial = ttk.Label(self.frm1)
@@ -212,34 +211,35 @@ class Inventario:
             minsize=70,
             weight=0
             )
+        self.frm2.rowconfigure((0,2), weight=1)
 
         #Botón para Buscar un Proveedor
         self.btnBuscar = ttk.Button(self.frm2)
         self.btnBuscar.configure(text='Buscar')
-        self.btnBuscar.grid(row=0, column=trailingCols)
+        self.btnBuscar.grid(row=1, column=trailingCols)
 
         #Botón para Guardar los datos
         self.btnGrabar = ttk.Button(self.frm2)
         self.btnGrabar.configure(text='Grabar', command=self.adiciona_Registro)
-        self.btnGrabar.grid(row=0, column=trailingCols+2)
+        self.btnGrabar.grid(row=1, column=trailingCols+2)
 
         #Botón para Editar los datos
         self.btnEditar = ttk.Button(self.frm2)
         self.btnEditar.configure(text='Editar', command=self.carga_Datos)
-        self.btnEditar.grid(row=0, column=trailingCols+4)
+        self.btnEditar.grid(row=1, column=trailingCols+4)
 
         #Botón para Elimnar datos
         self.btnEliminar = ttk.Button(self.frm2)
         self.btnEliminar.configure(text='Eliminar')
-        self.btnEliminar.grid(row=0, column=trailingCols+6)
+        self.btnEliminar.grid(row=1, column=trailingCols+6)
 
         #Botón para cancelar una operación
         self.btnCancelar = ttk.Button(self.frm2)
         self.btnCancelar.configure(text='Cancelar',command = self.limpiaCampos)
-        self.btnCancelar.grid(row=0, column=trailingCols+8)
+        self.btnCancelar.grid(row=1, column=trailingCols+8)
 
         #Ubicación del Frame 2
-        self.frm2.pack(side="bottom", ipady=10, anchor="s", expand=True, fill="x")
+        self.frm2.pack(side="bottom", anchor="s", expand=True, fill="both")
         self.label_frame.pack(anchor="center", side="top", expand=True, fill="both")
         
         # Título de la pestaña Ingreso de Datos
@@ -265,11 +265,14 @@ class Inventario:
         # win.deiconify() # Se usa para restaurar la ventana
 
     # Validaciones del sistema
-    def validaIdNit(self):
+    def validaIdNit(self, event: tk.Event):
         ''' Valida que la longitud no sea mayor a 15 caracteres'''
-        if len(self.idNit.get()) > 15:
-            self.idNit.delete(16)
+        if self.idNit.selection_present(): return
+        if event.char in ("","\t") or len(repr(event.char).strip("\"'\\")) > 1: return
+        if len(self.idNit.get()) > 14: #14 porque se ejecuta antes de añadir el caracter
+            #after idle para que quite el caracter despues de que se añada
             mssg.showerror('Atención!!','.. ¡Máximo 15 caracteres! ..')
+            self.idNit.after_idle(self.idNit.delete,15, "end")
 
     def isFechaValida(self)-> tuple[bool,str]:
         """ Revisa si la fecha es valida\n
@@ -316,28 +319,30 @@ class Inventario:
         if event.type == 1: position = self.fecha.index("insert")
         else: position = self.fecha.index("insert") #El indice donde se encuentra el cusor
         
+        seleccionado = False
+        #si esta selecionada parte del texto
+        if self.fecha.select_present():
+            seleccionado = True
+            position = self.fecha.index("sel.first")
+            self.fecha.after_idle(self.fecha.select_clear)
+            brk = True
+            self.fecha.after_idle(self.fecha.icursor, position+1)
         #modificacion del texto dentro del entry -----------------------------------
         #si esta entrando un numero
         if event.keysym.isnumeric():
-            #si esta selecionada parte del texto
-            if self.fecha.select_present():
-                position = self.fecha.index("sel.first")
-                self.fecha.select_clear()
-                brk = True
+            #quitar el caracter que estaba en ese espacio
+            if position < 10 and not position in (2,5):
                 self.fecha.delete(position, position+1)
-                self.fecha.insert(position,event.char)
-                self.fecha.after_idle(self.fecha.icursor, position+1)
-            #si no continuar como si nada
+                #si se seleccionó texto añadir manualmente el caracter
+                if seleccionado: self.fecha.insert(position, event.char)
+                position += 1
+            #pero si esta al final del entry no permitir la entrada del caracter
             else:
-                #quitar el caracter que estaba en ese espacio
-                if position < 10:
-                    self.fecha.delete(position, position+1)
-                    position += 1
-                #pero si esta al final del entry no permitir la entrada del caracter
-                else:
-                    brk = True
+                brk = True
         #si esta borrando
-        elif event.keysym == "BackSpace":
+        elif event.keysym == "BackSpace" and position > 0:
+            #si se seleccionó texto moverlo hacia adelante (se maneja mejor)
+            if seleccionado: position += 1
             #reemplazar caracter a borrar con el correspondiente ('d', 'm', o 'a')
             char = "a"
             if position <= 3: char = "d"
@@ -357,8 +362,9 @@ class Inventario:
         #movimiento por flechas ----------------------------------------------------
         if event.keysym == "Left": position -= 1
         elif event.keysym == "Right": position += 1
-        if position in (2, 5):
-            #cuando el cursor llega detras de un '/' lo mueve adelante de el
+        #cuando el cursor llega detras de un '/' lo mueve adelante de el
+        #a no ser de que halla texto seleccionado
+        if position in (2, 5) and not seleccionado:
             mover = position+(-1 if event.keysym == "Left" else 1)
             self.fecha.after_idle(self.fecha.icursor,mover)
             position = mover
@@ -404,18 +410,18 @@ class Inventario:
             self.treeProductos.selection_remove(seleccion)
             self.limpiaCampos()
             #insertando valores del tree a los Entry
-            #valores de Inventario
+            #valores de Productos
             tree_items = self.treeProductos.item(seleccion[0])
-            items_inventario = tree_items["values"]
+            items_Productos = tree_items["values"]
             self.idNit.configure(state="normal")
             self.idNit.insert(0, tree_items["text"]) #"text" porque es el primer campo
             self.idNit.configure(state = 'readonly')
-            self.codigo.insert(0,items_inventario[0])
-            self.descripcion.insert(0,items_inventario[1])
-            self.unidad.insert(0,items_inventario[2])
-            self.cantidad.insert(0,items_inventario[3])
-            self.precio.insert(0, items_inventario[4])
-            self.fecha.insert(0, items_inventario[5])
+            self.codigo.insert(0,items_Productos[0])
+            self.descripcion.insert(0,items_Productos[1])
+            self.unidad.insert(0,items_Productos[2])
+            self.cantidad.insert(0,items_Productos[3])
+            self.precio.insert(0, items_Productos[4])
+            self.fecha.insert(0, items_Productos[5])
             
             #valores de Proveedor
             items_proveedor = tuple(
@@ -442,8 +448,8 @@ class Inventario:
             self.treeProductos.delete(linea) # Límpia la filas del TreeView
         
         # Seleccionando los datos de la BD
-        # query = '''SELECT * from Proveedor INNER JOIN Inventario WHERE idNitProv = idNit ORDER BY idNitProv'''
-        query = "SELECT * FROM Inventario ORDER BY idNit" # hace lo mismo con menos
+        # query = '''SELECT * from Proveedor INNER JOIN Productos WHERE idNitProv = idNit ORDER BY idNitProv'''
+        query = "SELECT * FROM Productos ORDER BY idNit" # hace lo mismo con menos
         db_rows = self.run_Query(query) # db_rows contine la vista del query
         
         # Insertando los datos de la BD en treeProductos de la pantalla
@@ -481,7 +487,7 @@ class Inventario:
             invalido += "El campo codigo no puede estar vacio\n"
         elif (
             self.actualiza == None and 
-            tuple(self.run_Query(f"SELECT count(*) FROM Inventario WHERE Codigo = \"{codigo}\""))[0][0] != 0
+            tuple(self.run_Query(f"SELECT count(*) FROM Productos WHERE Codigo = \"{codigo}\""))[0][0] != 0
             ):
             invalido += f"El codigo {codigo} ya existe, los codigos deben ser unicos\n"
         #validaciones de descripcion, unidad, razon social, y ciudad son innecesarias
@@ -517,19 +523,19 @@ class Inventario:
             try:
                 with sqlite3.connect(self.db_name) as conn:
                     cursor = conn.cursor()
-                    row_inventario = (f'"{id}"', f'"{codigo}"', f'"{desc}"', f'"{unidad}"', f"{cantidad}", f"{precio}", f'"{fecha}"')
+                    row_Productos = (f'"{id}"', f'"{codigo}"', f'"{desc}"', f'"{unidad}"', f"{cantidad}", f"{precio}", f'"{fecha}"')
                     if self.actualiza == None:
-                        row_inventario = ", ".join(row_inventario)
-                        query_inventario = f"INSERT INTO Inventario VALUES({row_inventario});"
-                        print(query_inventario)
-                        cursor.execute(query_inventario)
+                        row_Productos = ", ".join(row_Productos)
+                        query_Productos = f"INSERT INTO Productos VALUES({row_Productos});"
+                        print(query_Productos)
+                        cursor.execute(query_Productos)
                     else:
-                        row_inventario = (row_inventario[0], *row_inventario[2:])
+                        row_Productos = (row_Productos[0], *row_Productos[2:])
                         cols = ("IdNit", "Descripcion", "Und", "Cantidad", "Precio", "Fecha")
-                        row_inventario = ", ".join(f"{cols[i]} = {v}" for i,v in enumerate(row_inventario))
-                        query_inventario = f"UPDATE Inventario SET WHERE {row_inventario} Codigo = {codigo};"
-                        print(query_inventario)
-                        cursor.execute(query_inventario)
+                        row_Productos = ", ".join(f"{cols[i]} = {v}" for i,v in enumerate(row_Productos))
+                        query_Productos = f"UPDATE Productos SET WHERE {row_Productos} Codigo = {codigo};"
+                        print(query_Productos)
+                        cursor.execute(query_Productos)
                     
                     if id_exist: #Si ya existe el idNit
                         update = [] #van los valores que se deben cambiar
