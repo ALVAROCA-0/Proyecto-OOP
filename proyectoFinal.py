@@ -564,9 +564,12 @@ class Inventario:
 
     def buscar(self) :
         id = self.idNit.get()
-        idExiste = bool(tuple(self.run_Query(f'SELECT count(*) FROM Productos WHERE idNit = "{id}"'))[0][0])
-        if idExiste: self.lee_treeProductos(id)
-        else: mssg.showerror("Error Id", f"No existe el id: {id}")
+        if id == "":
+            mssg.showerror("Error Id", "El campo Id/Nit esta vacio")
+        else:
+            idExiste = bool(self.run_Query(f'SELECT count(*) FROM Productos WHERE idNit = "{id}"').fetchone()[0])
+            if idExiste: self.lee_treeProductos(id)
+            else: mssg.showerror("Error Id", f"No existe el id: {id}")
         
             
     def editaTreeProveedores(self, event=None):
