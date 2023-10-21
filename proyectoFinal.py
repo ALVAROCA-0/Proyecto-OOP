@@ -560,7 +560,7 @@ class Inventario:
                 raise e
             else:
                 mssg.showinfo("Resultado de la acción", "Se añadieron los items a la base de datos correctamente")
-                self.lee_treeProductos()
+                self.lee_treeProductos(id)
 
     def buscar(self) :
         id = self.idNit.get()
