@@ -145,7 +145,6 @@ class Inventario:
         self.separador2.configure(orient="horizontal")
         self.separador2.grid(row=10, column=0, columnspan=17, sticky="we", pady=5)
 
-
         #tablaTreeView
         self.style=ttk.Style()
         self.style.configure("estilo.Treeview", highlightthickness=0, bd=0, background="#e0e0e0", font=('Calibri Light',10))
@@ -479,13 +478,13 @@ class Inventario:
         '''Adiciona un producto a la BD si la validación es True'''
         invalido = ""
         #validadcion idNit
-        id = self.idNit.get()
+        id = self.idNit.get().replace('"','""')
         if len(id) > 15:
             invalido += "El ID debe ser menor a 15\n"
         elif id == "":
             invalido += "El campo ID no puede estar vacio\n"
         #validadcion codigo
-        codigo = self.codigo.get()
+        codigo = self.codigo.get().replace('"','""')
         if codigo == "":
             invalido += "El campo codigo no puede estar vacio\n"
         elif (
@@ -495,13 +494,13 @@ class Inventario:
             invalido += f"El codigo {codigo} ya existe, los codigos deben ser unicos\n"
         #validaciones de descripcion, unidad, razon social, y ciudad son innecesarias
         #porque no tienen restricciones. Pero si estan vacias deben cambiarse a "NULL"
-        desc = self.descripcion.get()
+        desc = self.descripcion.get().replace('"','""')
         if desc == "": desc = "NULL"
-        unidad = self.unidad.get()
+        unidad = self.unidad.get().replace('"','""')
         if unidad == "": unidad = "NULL"
-        razon = self.razonSocial.get()
+        razon = self.razonSocial.get().replace('"','""')
         if razon == "": razon = "NULL"
-        ciudad = self.ciudad.get()
+        ciudad = self.ciudad.get().replace('"','""')
         if ciudad == "": ciudad = "NULL"
         #validadcion cantidad
         cantidad = self.cantidad.get()
@@ -547,7 +546,7 @@ class Inventario:
                         if id_exist[0][2] != null(ciudad): update.append(f'Ciudad = "{ciudad}"')
                         if update:
                             update = ", ".join(update)
-                            query_proveedor = f"UPDATE Proveedor SET {update} WHERE idNitProv = {id};"
+                            query_proveedor = f"UPDATE Proveedor SET {update} WHERE idNitProv = '{id}';"
                             print(query_proveedor)
                             cursor.execute(query_proveedor)
                     else: #si no añadir los nuevos datos a Proveedor
