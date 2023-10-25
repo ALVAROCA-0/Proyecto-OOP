@@ -139,6 +139,9 @@ class Inventario:
         self.fecha.bind("<FocusIn>", self.fechaFocusIn)
         self.fecha_mal = False
         
+        #CheckLabel Eliminar Proveedor
+        self.eliminarProveedor = ttk.Checkbutton(self.frm1, text="Eliminar Proveedor")
+        self.eliminarProveedor.grid(row=7, column=15, sticky="w", pady=25)
         
         #Separador
         self.separador2 = ttk.Separator(self.frm1)
