@@ -139,6 +139,7 @@ class Inventario:
         self.fecha.bind("<FocusIn>", self.fechaFocusIn)
         self.fecha_mal = False
         
+        
         #Separador
         self.separador2 = ttk.Separator(self.frm1)
         self.separador2.configure(orient="horizontal")
@@ -228,7 +229,7 @@ class Inventario:
 
         #Botón para Elimnar datos
         self.btnEliminar = ttk.Button(self.frm2)
-        self.btnEliminar.configure(text='Eliminar')
+        self.btnEliminar.configure(text='Eliminar', command = self.eliminaRegistro)
         self.btnEliminar.grid(row=1, column=trailingCols+6)
 
         #Botón para cancelar una operación
@@ -578,7 +579,58 @@ class Inventario:
         
     def eliminaRegistro(self, event=None):
         '''Elimina un Registro en la BD'''
-        pass
+        
+        if self.treeProductos.selection() == ():
+            mssg.showinfo("Advertencia","Debe seleccionar los elementos que desea eliminar")
+        else:
+            query = f"DELETE from Productos WHERE " #inicio del query que se actulizara con cada elemento seleccionado
+            mensaje_validacion = f"¿Esta seguro de eliminar los siguientes registros de la base de datos?\n" #mensaje de la ventana emergente que se actulizara con cada elemento seleccionado
+            busqueda = self.treeProductos.item(self.treeProductos.selection()[0])['text'] #idNit de los elemento a eliminar, para buscar al final del proceso
+            
+            #agrega los datos de cada seleccion a las variables que se van a ejecutar
+            for elemento in self.treeProductos.selection():
+                eliminar = f"(idNit = '{self.treeProductos.item(elemento)['text']}' and Codigo = '{self.treeProductos.item(elemento)['values'][0]}') or "
+                query += eliminar
+                mensaje_validacion += f"IdNit = {self.treeProductos.item(elemento)['text']}, Codigo = {self.treeProductos.item(elemento)['values'][0]}\n"
+
+            query = query[:-3] #limpia el texto del query que se va a ejecutar
+            valida_consulta = mssg.askokcancel("Advertencia",mensaje_validacion) #crea la ventana emergente de validacion
+
+            if valida_consulta:
+                try:
+                    self.run_Query(query)
+                except:
+                    mssg.showerror("Eliminacion fallida", "No se pudo eliminar los datos seleccionados de la base de datos")
+                else:
+                    mssg.showinfo("Eliminacion Terminada","Se han eliminado los productos seleccionados de la base de datos")
+                self.lee_treeProductos(busqueda) #Busca y muestra los elementos del idNit restantes despues de la eliminacion
+
+                #Verifica si el proveedor esta vacio
+                proveedor_Vacio = True 
+                for row in self.run_Query(f"SELECT * from Productos WHERE idNit = '{busqueda}'"):
+                    if row != ():
+                        proveedor_Vacio = False
+                        break
+                
+                #Si el proveedor no tiene productos, se consulta la eliminacion del proveedor
+                if proveedor_Vacio:
+                    valida_eliminarProveedor = mssg.askokcancel("Advertencia",f"El proveedor con el IdNit = {busqueda} esta vacio.\n¿Desea eliminarlo de la tabla de Proveedores?")
+                    if valida_eliminarProveedor:
+                        try:
+                            self.run_Query(f"DELETE from Proveedor WHERE idNitProv = '{busqueda}'")
+                            # conexion = sqlite3.connect(self.db_name) 
+                            # cursor = conexion.cursor()
+                            # query = f"DELETE from Proveedor WHERE idNitProv = '{busqueda}'"
+                            # cursor.execute(query)
+                            # conexion.commit()
+                            # conexion.close()
+                        except:
+                            mssg.showerror("Eleiminacion fallida", "No se ha podido eliminar el proveedor")
+                        else:
+                            mssg.showinfo("Eliminacion Terminada","Se ha eliminado el proveedor")
+            else:
+                mssg.showinfo("Eliminacion Cancelada","Se ha cancelado la eliminacion de los productos seleccionados")
+                self.limpiaCampos()
 
 if __name__ == "__main__":
     app = Inventario()
