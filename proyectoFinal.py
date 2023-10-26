@@ -55,6 +55,7 @@ class Inventario:
         self.idNit.configure(takefocus=True, width=15)
         self.idNit.grid(row=0, column=2, columnspan=2, sticky="w", pady=25)
         self.idNit.bind("<Key>", self.validaIdNit)
+        self.idNit.focus()
 
         #Etiqueta razón social del Proveedor
         self.lblRazonSocial = ttk.Label(self.frm1)
@@ -131,7 +132,7 @@ class Inventario:
 
         #Captura la fecha de compra del Producto
         self.fecha_sv = tk.StringVar(value="dd/mm/aaaa")
-        self.fecha = ttk.Entry(self.frm1, width=10, textvariable=self.fecha_sv)
+        self.fecha = ttk.Entry(self.frm1, width=10, textvariable=self.fecha_sv, )
         self.fecha.grid(row=7, column=13, sticky="w", pady=25)
         for i in ("Button-1", "Left", "Right", "Key","BackSpace", "space"):
             self.fecha.bind(f"<{i}>", self.validaFecha)
@@ -265,15 +266,18 @@ class Inventario:
         win.geometry(f'{ancho}x{alto}+{x}+{y}')
         # win.deiconify() # Se usa para restaurar la ventana
 
+    def idExiste(self, id: str) -> bool:
+        """Retorna si existe el idNit en Proveedor"""
+        return bool(self.run_Query(f"SELECT count(*) FROM Proveedor WHERE idNitProv = {id};").fetchone()[0])
+    
     # Validaciones del sistema
     def validaIdNit(self, event: tk.Event):
         ''' Valida que la longitud no sea mayor a 15 caracteres'''
         if self.idNit.selection_present(): return
-        if event.char in ("","\t") or len(repr(event.char).strip("\"'\\")) > 1: return
-        if len(self.idNit.get()) > 14: #14 porque se ejecuta antes de añadir el caracter
-            #after idle para que quite el caracter despues de que se añada
+        # if event.char in ("","\t") or len(repr(event.char).strip("\"'\\")) > 1: return
+        if len(self.idNit.get()) > 15-len(event.char):
             mssg.showerror('Atención!!','.. ¡Máximo 15 caracteres! ..')
-            self.idNit.after_idle(self.idNit.delete,15, "end")
+            return "break"
 
     def isFechaValida(self)-> tuple[bool,str]:
         """ Revisa si la fecha es valida\n
@@ -401,6 +405,7 @@ class Inventario:
         self.cantidad.delete(0,'end')
         self.precio.delete(0,'end')
         self.fecha.delete(0,'end')
+        self.fecha.insert(0,'dd/mm/aa')
     
     #Rutina para cargar los datos del árbol a los entry correspondientes
     def carga_Datos(self):
@@ -435,7 +440,7 @@ class Inventario:
             self.ciudad.insert(0, "" if items_proveedor[1] == None else str(items_proveedor[1]))
     
     # Operaciones con la base de datos
-    def run_Query(self, query, parametros = ()):
+    def run_Query(self, query, parametros = ()) -> sqlite3.Cursor:
         ''' Función para ejecutar los Querys a la base de datos '''
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
@@ -461,21 +466,6 @@ class Inventario:
         for row in db_rows:
             # self.treeProductos.insert('',0, text = row[0], values = [row[4],row[5],row[6],row[7],row[8],row[9]])
             self.treeProductos.insert('',0, text = row[0], values = row[1:])
-
-        
-        #Lo siguiente insertaria datos a los entry de forma incorrecta
-        ''' Al final del for row queda con la última tupla
-            y se usan para cargar las variables de captura
-        '''
-        # self.idNit.insert(0,row[0])
-        # self.razonSocial.insert(0,row[1])
-        # self.ciudad.insert(0,row[2])
-        # self.codigo.insert(0,row[4])
-        # self.descripcion.insert(0,row[5])
-        # self.unidad.insert(0,row[6])
-        # self.cantidad.insert(0,row[7])
-        # self.precio.insert(0,row[8])
-        # self.fecha.insert(0,row[9])  
     
     def adiciona_Registro(self, event=None):
         '''Adiciona un producto a la BD si la validación es True'''
@@ -566,15 +556,35 @@ class Inventario:
                 self.lee_treeProductos(id)
 
     def buscar(self) :
-        id = self.idNit.get()
+        id = self.idNit.get().replace('"','""')
         if id == "":
             mssg.showerror("Error Id", "El campo Id/Nit esta vacio")
         else:
-            idExiste = bool(self.run_Query(f'SELECT count(*) FROM Productos WHERE idNit = "{id}"').fetchone()[0])
-            if idExiste: self.lee_treeProductos(id)
+            idValues = tuple(self.run_Query(f'SELECT Ciudad,Razon_Social FROM Proveedor WHERE idNitProv = "{id}"').fetchone())
+            if idValues:
+                print(idValues)
+                self.lee_treeProductos(id)
+                self.ciudad.delete(0,'end')
+                self.ciudad.insert(0, "" if idValues[0]==None else idValues[0])
+                self.razonSocial.delete(0,'end')
+                self.razonSocial.insert(0, "" if idValues[1]==None else idValues[1])
             else: mssg.showerror("Error Id", f"No existe el id: {id}")
-        
-            
+    
+    def grabar(self, event=None):
+        """Funcion para cuando se presione el boton editar"""
+        id = self.idNit.get().replace('"','""')
+        if self.idExiste(id):
+            rowProv = tuple(self.run_Query(f"SELECT Ciudad,Razon_Social FROM Proveedor WHERE idNitProv = {id}").fetchone())
+            cambiarCampos = []
+            if self.ciudad.get() == rowProv: cambiarCampos.append(("ciudad",self.ciudad.get().replace('"','""')))
+            if self.lblRazonSocial.get() == rowProv: cambiarCampos.append("razon",self.razonSocial.get().replace('"','""'))
+            if cambiarCampos:
+                plural = "el campo" if len(cambiarCampos) == 1 else "los campos"
+                campos = ", ".join(c for c,_ in cambiarCampos)
+                cambiar = mssg.askokcancel("Cambio Proveedor", f"Desea cambiar {plural}: {campos}")
+        else:
+            pass
+    
     def editaTreeProveedores(self, event=None):
         ''' Edita una tupla del TreeView'''
         pass
@@ -620,12 +630,6 @@ class Inventario:
                     if valida_eliminarProveedor:
                         try:
                             self.run_Query(f"DELETE from Proveedor WHERE idNitProv = '{busqueda}'")
-                            # conexion = sqlite3.connect(self.db_name) 
-                            # cursor = conexion.cursor()
-                            # query = f"DELETE from Proveedor WHERE idNitProv = '{busqueda}'"
-                            # cursor.execute(query)
-                            # conexion.commit()
-                            # conexion.close()
                         except:
                             mssg.showerror("Eleiminacion fallida", "No se ha podido eliminar el proveedor")
                         else:
