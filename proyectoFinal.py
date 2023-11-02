@@ -52,9 +52,9 @@ class Inventario:
         #Captura IdNit del Proveedor
         self.idNit_sv = tk.StringVar()
         self.idNit = ttk.Entry(self.frm1, textvariable=self.idNit_sv)
-        self.idNit.configure(takefocus=True, width=15)
+        self.idNit.configure(takefocus=True, width=17)
         self.idNit.grid(row=0, column=2, columnspan=2, sticky="w", pady=25)
-        self.idNit.bind("<Key>", self.validaIdNit)
+        self.idNit_sv.trace("w",self.validaIdNit)
         self.idNit.focus()
 
         #Etiqueta razón social del Proveedor
@@ -140,10 +140,6 @@ class Inventario:
         self.fecha.bind("<FocusIn>", self.fechaFocusIn)
         self.fecha_mal = False
         
-        #CheckLabel Eliminar Proveedor
-        self.eliminarProveedor = ttk.Checkbutton(self.frm1, text="Eliminar Proveedor")
-        self.eliminarProveedor.grid(row=7, column=15, sticky="w", pady=25)
-        
         #Separador
         self.separador2 = ttk.Separator(self.frm1)
         self.separador2.configure(orient="horizontal")
@@ -180,6 +176,7 @@ class Inventario:
         self.treeProductos.heading("Precio",      anchor="center", text='Precio')
         self.treeProductos.heading("Fecha",       anchor="center", text='Fecha')
 
+        self.treeProductos.bind("<<TreeviewSelect>>", self.habilitarEdicion)
         self.treeProductos.grid(row=11, column=0, columnspan=16, sticky="news")
 
         #Scrollbar en el eje Y de treeProductos
@@ -222,22 +219,22 @@ class Inventario:
 
         #Botón para Guardar los datos
         self.btnGrabar = ttk.Button(self.frm2)
-        self.btnGrabar.configure(text='Grabar', command=self.adiciona_Registro)
+        self.btnGrabar.configure(text='Grabar', command=self.grabar)
         self.btnGrabar.grid(row=1, column=trailingCols+2)
 
         #Botón para Editar los datos
         self.btnEditar = ttk.Button(self.frm2)
-        self.btnEditar.configure(text='Editar', command=self.carga_Datos)
+        self.btnEditar.configure(text='Editar', command=self.editar, state="disabled")
         self.btnEditar.grid(row=1, column=trailingCols+4)
 
         #Botón para Elimnar datos
         self.btnEliminar = ttk.Button(self.frm2)
-        self.btnEliminar.configure(text='Eliminar', command = self.eliminaRegistro)
+        self.btnEliminar.configure(text='Eliminar', command = self.eliminaRegistro, state="disabled")
         self.btnEliminar.grid(row=1, column=trailingCols+6)
 
         #Botón para cancelar una operación
         self.btnCancelar = ttk.Button(self.frm2)
-        self.btnCancelar.configure(text='Cancelar',command = self.limpiaCampos)
+        self.btnCancelar.configure(text='Cancelar',command = self.cancelar)
         self.btnCancelar.grid(row=1, column=trailingCols+8)
 
         #Ubicación del Frame 2
@@ -258,6 +255,16 @@ class Inventario:
         self.mainwindow.mainloop()
 
     # Métodos utilitarios del sistema-----------------------------------------
+    
+    def habilitarEdicion(self, event):
+        seleccion=self.treeProductos.selection()
+        if seleccion:
+            self.btnEditar["state"] = "normal"
+            self.btnEliminar["state"] = "normal"
+        else :
+            self.btnEditar["state"] = "disabled"
+            self.btnEliminar["state"] = "disabled"
+    
     #Rutina de centrado de pantalla
     def centra(self,win: tk.Tk,ancho,alto):
         """ centra las ventanas en la pantalla """ 
@@ -268,26 +275,26 @@ class Inventario:
 
     def idExiste(self, id: str) -> bool:
         """Retorna si existe el idNit en Proveedor"""
-        return bool(self.run_Query(f"SELECT count(*) FROM Proveedor WHERE idNitProv = {id};").fetchone()[0])
+        return bool(self.run_Query(f'SELECT count(*) FROM Proveedor WHERE idNitProv = "{id}";').fetchone()[0])
     
     # Validaciones del sistema
-    def validaIdNit(self, event: tk.Event):
+    def validaIdNit(self, _,__,___):
         ''' Valida que la longitud no sea mayor a 15 caracteres'''
-        if self.idNit.selection_present(): return
-        # if event.char in ("","\t") or len(repr(event.char).strip("\"'\\")) > 1: return
-        if len(self.idNit.get()) > 15-len(event.char):
+        if len(self.idNit.get()) > 15:
             mssg.showerror('Atención!!','.. ¡Máximo 15 caracteres! ..')
-            return "break"
+            self.idNit.delete(15,"end")
 
-    def isFechaValida(self)-> tuple[bool,str]:
+    def isFechaValida(self, fecha:str) -> tuple[bool,str]:
         """ Revisa si la fecha es valida\n
             retorna: 
                 -una tupla con el bool como resultado de la validación\n
                 -un str como la razon de porque es invalido ("" si es valido)"""
         try:
-            dia, mes, año = (int(i) for i in self.fecha_sv.get().split("/"))
+            dia, mes, año = (int(i) for i in fecha.split("/"))
         except ValueError:
             return False, "Las fechas deben estar compuestas solo por números enteros positivos"
+        if año < 1000:
+            return False,"El año debe ser de cuatro digitos (minimo 1000)"
         es_biciesto = (año%4 == 0) and ((año%100 != 0) or (año%400 == 0))
         max_dia = 31
         if mes > 12 or mes < 0:
@@ -311,7 +318,7 @@ class Inventario:
     
     def fechaFocusOut(self, event):
         """Se ejecuta cuando se sale del Entry fecha"""
-        valida = self.isFechaValida()
+        valida = self.isFechaValida(self.fecha.get())
         if (not valida[0]) and self.fecha.get().replace("/","").isnumeric():
             self.validaFecha(event)
             mssg.showerror("Atención!!", "¡Fecha invalida!!!\n"+valida[1])
@@ -362,7 +369,6 @@ class Inventario:
             self.fecha.after_idle(self.fecha.icursor, position)
             brk = True
         elif len(event.char) >= 1 and int(event.type) != 4:
-            print(event.type)
             #borra el ultimo caracter digitado
             brk = True
         #movimiento por flechas ----------------------------------------------------
@@ -379,9 +385,9 @@ class Inventario:
         #si todos los valores de fecha son numeros (exepto los '/')
         #osea ya es una fecha
         if (self.fecha.get().replace("/","")).isnumeric():
-            if self.isFechaValida()[0]:
+            if self.isFechaValida(self.fecha.get()+event.char)[0]:
                 self.fecha.configure(foreground="black")
-            else: self.fecha.configure(foreground="red")
+            else:self.fecha.configure(foreground="red")
         
         #en caso de que el largo de fecha sea mayor a 10 repararlo
         if len(self.fecha_sv.get())>10: self.fecha_sv.set(self.fecha_sv.get()[:10])
@@ -407,37 +413,21 @@ class Inventario:
         self.fecha.delete(0,'end')
         self.fecha.insert(0,'dd/mm/aa')
     
-    #Rutina para cargar los datos del árbol a los entry correspondientes
-    def carga_Datos(self):
-        if self.actualiza: return
-        seleccion = self.treeProductos.selection()
-        #solo si se esta seleccionando algo
-        if seleccion:
-            self.actualiza = seleccion[0]
-            self.treeProductos.selection_remove(seleccion)
-            self.limpiaCampos()
-            #insertando valores del tree a los Entry
-            #valores de Productos
-            tree_items = self.treeProductos.item(seleccion[0])
-            items_Productos = tree_items["values"]
-            self.idNit.configure(state="normal")
-            self.idNit.insert(0, tree_items["text"]) #"text" porque es el primer campo
-            self.idNit.configure(state = 'readonly')
-            self.codigo.insert(0,items_Productos[0])
-            self.descripcion.insert(0,items_Productos[1])
-            self.unidad.insert(0,items_Productos[2])
-            self.cantidad.insert(0,items_Productos[3])
-            self.precio.insert(0, items_Productos[4])
-            self.fecha.insert(0, items_Productos[5])
-            
-            #valores de Proveedor
-            items_proveedor = tuple(
-                self.run_Query(
-                    f'SELECT Razon_Social, Ciudad FROM Proveedor WHERE idNitProv = "{tree_items["text"]}";'
-                    )
-                )[0]
-            self.razonSocial.insert(0, "" if items_proveedor[0] == None else str(items_proveedor[0]))
-            self.ciudad.insert(0, "" if items_proveedor[1] == None else str(items_proveedor[1]))
+    def carga_Datos(self, seleccion: str):
+        """Rutina para cargar los datos del árbol a los entry correspondientes"""
+        self.limpiaCampos()
+        #insertando valores del tree a los Entry
+        #valores de Productos
+        tree_items = self.treeProductos.item(seleccion)
+        items_Productos = tree_items["values"]
+        self.idNit.insert(0, tree_items["text"]) #"text" porque es el primer campo
+        self.codigo.insert(0,items_Productos[0])
+        self.descripcion.insert(0,items_Productos[1])
+        self.unidad.insert(0,items_Productos[2])
+        self.cantidad.insert(0,items_Productos[3])
+        self.precio.insert(0, items_Productos[4])
+        self.fecha.delete(0,"end")
+        self.fecha.insert(0, items_Productos[5])
     
     # Operaciones con la base de datos
     def run_Query(self, query, parametros = ()) -> sqlite3.Cursor:
@@ -467,128 +457,256 @@ class Inventario:
             # self.treeProductos.insert('',0, text = row[0], values = [row[4],row[5],row[6],row[7],row[8],row[9]])
             self.treeProductos.insert('',0, text = row[0], values = row[1:])
     
-    def adiciona_Registro(self, event=None):
-        '''Adiciona un producto a la BD si la validación es True'''
-        invalido = ""
-        #validadcion idNit
-        id = self.idNit.get().replace('"','""')
+    def editarProductos(
+        self,
+        id: str,
+        codigo: str,
+        desc: str,
+        unidad: str,
+        cantidad: float,
+        precio: float,
+        fecha: str) -> None:
+        """Edita los datos de la tabla Productos en un idNit y codigo con los datos.
+        
+        Los datos deben ser validados antes de ser llamada
+        
+        Retorna true si se aplico el cambio correctamente"""
+        completado = False
+        WHERE = f'WHERE idNit = "{id}" AND Codigo = "{codigo}"'
+        datos = (
+            (0, "Descripcion", desc),
+            (1, "Und", unidad),
+            (2, "Cantidad", cantidad),
+            (3, "Precio", precio),
+            (4, "Fecha", fecha)
+        )
+        registroActual = self.run_Query(
+            f'SELECT Descripcion, Und, Cantidad, Precio, Fecha FROM Productos {WHERE};'
+            ).fetchone()
+        if not registroActual:
+            mssg.showerror("Id/Codigo invalido", "No existe un producto con ese idNit y codigo")
+            return False
+        
+        #para cambiar los datos del registro al mismo formato que el resto de datos
+        registroActual = tuple(
+            map(
+                lambda x: 
+                    (lambda x: x if type(x) != str else x.replace('"','""'))(x)
+                    if x!=None else "NULL"
+                ,registroActual
+                )
+            )
+        cambiar = tuple(f'{k} = "{v}"' for i,k,v in datos if v != registroActual[i])
+        if cambiar and mssg.askokcancel("Confirmación","¿Desea editar la tabla Productos?"):
+            cambiar = ", ".join(cambiar)
+            try:
+                self.run_Query(f'UPDATE Productos SET {cambiar} {WHERE};')
+                completado = True
+            except:
+                mssg.showerror("Edicion fallida", "Fallo el cambio de datos en la tabla Productos")
+                return
+            else:
+                mssg.showinfo("Edicion completada", "Se completo cambio de datos en la tabla Productos")
+        return completado
+    
+    def editarProveedor(self, id: str, razon: str, ciudad: str) -> None:
+        """Edita los datos de la tabla Proveedor en un idNit con los datos.
+        
+        Los datos deben ser validados antes de ser llamada
+        
+        Retorna true si se aplico el cambio correctamente"""
+        completado = False
+        WHERE = f'WHERE idNitProv = "{id}"'
+        registroActual = self.run_Query(f'SELECT Ciudad,Razon_Social FROM Proveedor {WHERE};').fetchone()
+        if not registroActual:
+            mssg.showerror("Id invalido","No existe el idNit en la tabla Proveedor")
+            return False
+        registroActual = tuple(map(lambda x: x if x!=None else "NULL",registroActual))
+        #valores a cambiar
+        cambiar = []
+        if razon != registroActual[0]: cambiar.append(f'Razon_Social = "{razon}"')
+        if ciudad != registroActual[1]: cambiar.append(f'Ciudad = "{ciudad}"')
+        #Aplica los cambios
+        
+        if cambiar and mssg.askokcancel("Confirmación","¿Desea editar la tabla Proveedor?"):
+            cambiar = ", ".join(cambiar)
+            try:
+                self.run_Query(f'UPDATE Proveedor SET {cambiar} {WHERE};')
+                completado = True
+            except:
+                mssg.showerror("Edicion fallida", "Fallo el cambio de datos en la tabla Proveedor")
+            else:
+                mssg.showinfo("Edicion completada", "Se completo cambio de datos en la tabla Proveedor")
+        return completado
+    
+    def validacionCampos(self) -> bool:
+        """Valida los datos en los entry, avisa al usuario de datos invalidos
+        y retorna false si hay datos invalidos; True si todos son validos"""
+        #validaciones de descripcion, unidad, razon social, y ciudad son innecesarias
+        
+        invalido = "" #para guardar las razones por las que un dato es invalido
+        #validacion idNit
+        id = self.idNit.get()
         if len(id) > 15:
             invalido += "El ID debe ser menor a 15\n"
         elif id == "":
             invalido += "El campo ID no puede estar vacio\n"
-        #validadcion codigo
+        id = id.replace('"','""')
+        #validacion codigo
         codigo = self.codigo.get().replace('"','""')
         if codigo == "":
             invalido += "El campo codigo no puede estar vacio\n"
         elif (
-            self.actualiza == None and 
-            tuple(self.run_Query(f"SELECT count(*) FROM Productos WHERE Codigo = \"{codigo}\""))[0][0] != 0
+            self.actualiza == None and
+            self.run_Query(f'SELECT count(*) FROM Productos WHERE Codigo = "{codigo}" AND idNit = "{id}"').fetchone()[0] != 0
             ):
             invalido += f"El codigo {codigo} ya existe, los codigos deben ser unicos\n"
-        #validaciones de descripcion, unidad, razon social, y ciudad son innecesarias
-        #porque no tienen restricciones. Pero si estan vacias deben cambiarse a "NULL"
-        desc = self.descripcion.get().replace('"','""')
-        if desc == "": desc = "NULL"
-        unidad = self.unidad.get().replace('"','""')
-        if unidad == "": unidad = "NULL"
-        razon = self.razonSocial.get().replace('"','""')
-        if razon == "": razon = "NULL"
-        ciudad = self.ciudad.get().replace('"','""')
-        if ciudad == "": ciudad = "NULL"
         #validadcion cantidad
         cantidad = self.cantidad.get()
-        if (not cantidad.isnumeric()) or float(cantidad) < 0:
+        if (not cantidad.replace(".","").isnumeric()) or float(cantidad) < 0:
             invalido += "Las cantidades deben ser números positivos\n"
-        else: cantidad = float(cantidad)
         #validadcion precio
         precio = self.precio.get()
-        if (not precio.isnumeric()) or float(precio) < 0:
+        if (not precio.replace(".","").isnumeric()) or float(precio) < 0:
             invalido += "Los precios deben ser números positivos\n"
-        else: precio = float(precio)
         #validadcion fecha
-        fecha = self.fecha.get()
-        fechaValida, porque = self.isFechaValida()
+        fechaValida, porque = self.isFechaValida(self.fecha.get())
         if not fechaValida:
             invalido += porque
         
         if invalido:
-            mssg.showerror("¡Datos Incorrectos!!!", str(invalido))
+            mssg.showerror("¡Datos Incorrectos!!!", str(invalido.removesuffix("\n")))
+            return False
+        return True
+    
+    def adiciona_Registro(
+        self,
+        id: str,
+        codigo: str,
+        desc: str,
+        unidad: str,
+        razon: str,
+        ciudad: str,
+        cantidad: float,
+        precio: float,
+        fecha: str) -> bool:
+        '''Adiciona un producto a la BD. La validación debe ser True'''
+        
+        existe = False
+        if self.idExiste(id):
+            existe = bool(self.run_Query(f'SELECT COUNT(*) FROM Productos WHERE idNit = "{id}" AND Codigo = "{codigo}"').fetchone()[0])
         else:
-            id_exist = self.run_Query(f'SELECT * FROM Proveedor WHERE idNitProv = "{id}";').fetchall()
-            try:
-                with sqlite3.connect(self.db_name) as conn:
-                    cursor = conn.cursor()
-                    row_Productos = (f'"{id}"', f'"{codigo}"', f'"{desc}"', f'"{unidad}"', f"{cantidad}", f"{precio}", f'"{fecha}"')
-                    if self.actualiza == None:
-                        row_Productos = ", ".join(row_Productos)
-                        query_Productos = f"INSERT INTO Productos VALUES({row_Productos});"
-                        print(query_Productos)
-                        cursor.execute(query_Productos)
-                    else:
-                        row_Productos = (row_Productos[0], *row_Productos[2:])
-                        cols = ("IdNit", "Descripcion", "Und", "Cantidad", "Precio", "Fecha")
-                        row_Productos = ", ".join(f"{cols[i]} = {v}" for i,v in enumerate(row_Productos))
-                        query_Productos = f"UPDATE Productos SET WHERE {row_Productos} Codigo = {codigo};"
-                        print(query_Productos)
-                        cursor.execute(query_Productos)
-                    
-                    if id_exist: #Si ya existe el idNit
-                        update = [] #van los valores que se deben cambiar
-                        null = lambda n:None if n == "NULL" else n
-                        if id_exist[0][1] != null(razon): update.append(f'Razon_Social = "{razon}"')
-                        if id_exist[0][2] != null(ciudad): update.append(f'Ciudad = "{ciudad}"')
-                        if update:
-                            update = ", ".join(update)
-                            query_proveedor = f"UPDATE Proveedor SET {update} WHERE idNitProv = '{id}';"
-                            print(query_proveedor)
-                            cursor.execute(query_proveedor)
-                    else: #si no añadir los nuevos datos a Proveedor
-                        row_Proveedor = f'"{id}", "{razon}", "{ciudad}"'
-                        query_proveedor = f"INSERT INTO Proveedor VALUES({row_Proveedor});"
-                        print(query_proveedor)
-                        cursor.execute(query_proveedor)
-                    conn.commit()
-            except Exception as e:
-                mssg.showerror("Resultado de la acción", "Ocurrio un error al intentar adicionar el registro")
-                raise e
+            if mssg.askokcancel("Confirmación","Desea añadir los datos a la tabla Proveedor?"):
+                try:
+                    self.run_Query(f'INSERT INTO Proveedor VALUES("{id}", "{razon}", "{ciudad}");')
+                except Exception as e:
+                    mssg.showerror("Resultado de la acción", "Ocurrio un error al intentar añadir datos a Proveedor")
+                    return
+                else:
+                    mssg.showinfo("Resultado de la acción", "Se añadieron los items a la base de datos correctamente")
             else:
-                mssg.showinfo("Resultado de la acción", "Se añadieron los items a la base de datos correctamente")
-                self.lee_treeProductos(id)
+                mssg.showinfo("Cancelando", "Cancelando guardado de registro")
+                return
+        if existe:
+            print (existe)
+            mssg.showerror("Error","Ya existe un producto con misma idNit y Codigo")
+            return
+        if mssg.askokcancel("Confirmacion", "Desea añadir los datos a Productos?"):
+            row_Productos = f'"{id}", "{codigo}", "{desc}", "{unidad}", {cantidad}, {precio}, "{fecha}"'
+            try:
+                self.run_Query(f'INSERT INTO Productos VALUES({row_Productos});')
+            except Exception as e:
+                mssg.showerror("Resultado de la acción", "Ocurrio un error al intentar añadir datos a Productos")
+                return
+            else:
+                mssg.showinfo("Resultado de la acción", "Se añadieron los items a Productos correctamente")
+        self.lee_treeProductos(id)
 
-    def buscar(self) :
+    def buscar(self):
+        """Busca un idNit en la base de datos y la muestra en el treeview.
+        
+        Tambien se colocan los valores de ciudad y razon social de ese id en sus entry"""
         id = self.idNit.get().replace('"','""')
         if id == "":
             mssg.showerror("Error Id", "El campo Id/Nit esta vacio")
         else:
             idValues = tuple(self.run_Query(f'SELECT Ciudad,Razon_Social FROM Proveedor WHERE idNitProv = "{id}"').fetchone())
             if idValues:
-                print(idValues)
                 self.lee_treeProductos(id)
                 self.ciudad.delete(0,'end')
-                self.ciudad.insert(0, "" if idValues[0]==None else idValues[0])
                 self.razonSocial.delete(0,'end')
+                self.ciudad.insert(0, "" if idValues[0]==None else idValues[0])
                 self.razonSocial.insert(0, "" if idValues[1]==None else idValues[1])
+                self.ciudad["state"] = "readonly"
+                self.razonSocial["state"] = "readonly"
             else: mssg.showerror("Error Id", f"No existe el id: {id}")
     
-    def grabar(self, event=None):
-        """Funcion para cuando se presione el boton editar"""
-        id = self.idNit.get().replace('"','""')
-        if self.idExiste(id):
-            rowProv = tuple(self.run_Query(f"SELECT Ciudad,Razon_Social FROM Proveedor WHERE idNitProv = {id}").fetchone())
-            cambiarCampos = []
-            if self.ciudad.get() == rowProv: cambiarCampos.append(("ciudad",self.ciudad.get().replace('"','""')))
-            if self.lblRazonSocial.get() == rowProv: cambiarCampos.append("razon",self.razonSocial.get().replace('"','""'))
-            if cambiarCampos:
-                plural = "el campo" if len(cambiarCampos) == 1 else "los campos"
-                campos = ", ".join(c for c,_ in cambiarCampos)
-                cambiar = mssg.askokcancel("Cambio Proveedor", f"Desea cambiar {plural}: {campos}")
-        else:
-            pass
-    
-    def editaTreeProveedores(self, event=None):
-        ''' Edita una tupla del TreeView'''
-        pass
+    def editar(self, event: tk.Event=None) -> None:
+        """Rutina para cuando se presiona editar"""
+        seleccion = self.treeProductos.selection()
+        if len(seleccion) == 1:
+            self.carga_Datos(seleccion[0])
+            self.deseleccionarTree()
+            self.idNit["state"] = "readonly"
+            self.codigo["state"] = "readonly"
+            self.razonSocial["state"] = "normal"
+            self.ciudad["state"] = "normal"
+            self.actualiza = seleccion[0]
+        else: mssg.showerror("Error seleccion","Se debe seleccionar una sola fila para poder editar")
         
+    
+    def grabar(self):
+        """Rutina para cuando se presiona grabar"""
+        if self.validacionCampos():
+            #obtencion de datos dentro de los entrys
+            id = self.idNit.get()
+            codigo = self.codigo.get()
+            desc = self.descripcion.get()
+            unidad = self.unidad.get()
+            razon = self.razonSocial.get()
+            ciudad = self.ciudad.get()
+            cantidad = self.cantidad.get()
+            precio = self.precio.get()
+            fecha = self.fecha.get()
+            
+            datos = (codigo,desc,unidad,cantidad,precio,fecha)
+            #Convertir datos dentro de entrys a valores a usar en querys
+            id = id.replace('"','""')
+            codigo = codigo.replace('"','""')
+            desc = "NULL" if desc == "" else desc.replace('"','""')
+            unidad = "NULL" if unidad == "" else unidad.replace('"','""')
+            razon = "NULL" if razon == "" else razon.replace('"','""')
+            ciudad = "NULL" if ciudad == "" else ciudad.replace('"','""')
+            cantidad = float(cantidad)
+            precio = float(precio)
+            
+            #si se esta adicionando un nuevo registro
+            if self.actualiza == None:
+                self.adiciona_Registro(id,codigo,desc,unidad,razon,ciudad,cantidad,precio,fecha)
+            else: #si se esta editando un registro
+                self.editarProveedor(id,razon,ciudad)
+                if self.editarProductos(id,codigo,desc,unidad,cantidad,precio,fecha):
+                    self.idNit["state"] = "normal"
+                    self.codigo["state"] = "normal"
+                    self.treeProductos.item(self.actualiza,values=datos)
+                    self.actualiza = None
+    
+    def cancelar(self):
+        self.limpiaCampos()
+        self.deseleccionarTree()
+        self.actualiza = None
+        self.idNit["state"] = "normal"
+        self.codigo["state"] = "normal"
+        self.btnGrabar["state"]="normal"
+        self.btnBuscar["state"]="normal"
+        self.btnEditar["state"]="disabled"
+        self.btnEliminar["state"]="disabled"
+    
+    def deseleccionarTree(self):
+        seleccion=self.treeProductos.selection()
+        if seleccion:
+            self.treeProductos.selection_remove(*seleccion)
+    
     def eliminaRegistro(self, event=None):
         '''Elimina un Registro en la BD'''
         
