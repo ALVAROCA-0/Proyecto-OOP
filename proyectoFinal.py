@@ -229,7 +229,7 @@ class Inventario:
 
         #Botón para Elimnar datos
         self.btnEliminar = ttk.Button(self.frm2)
-        self.btnEliminar.configure(text='Eliminar', command = self.eliminaRegistro, state="disabled")
+        self.btnEliminar.configure(text='Eliminar', command = self.selecEliminar)
         self.btnEliminar.grid(row=1, column=trailingCols+6)
 
         #Botón para cancelar una operación
@@ -275,7 +275,7 @@ class Inventario:
 
     def idExiste(self, id: str) -> bool:
         """Retorna si existe el idNit en Proveedor"""
-        return bool(self.run_Query(f'SELECT count(*) FROM Proveedor WHERE idNitProv = "{id}";').fetchone()[0])
+        return bool(self.run_Query('SELECT count(*) FROM Proveedor WHERE IdNitProv = ?;',(id,)).fetchone()[0])
     
     # Validaciones del sistema
     def validaIdNit(self, _,__,___):
@@ -401,6 +401,9 @@ class Inventario:
         ''' Limpia todos los campos de captura'''
         self.actualiza = None
         self.idNit.config(state = 'normal')
+        self.codigo.config(state = 'normal')
+        self.razonSocial.config(state = 'normal')
+        self.ciudad.config(state = 'normal')
         self.idNit.delete(0,'end')
         self.razonSocial.delete(0,'end')
         self.ciudad.delete(0,'end')
@@ -446,11 +449,11 @@ class Inventario:
             self.treeProductos.delete(linea) # Límpia la filas del TreeView
         
         #si dan una id solo mostrar los datos con esa id
-        if id != "": id = f' WHERE idNit = "{id}"'
+        where = "" if id != ""else f' WHERE IdNit = ?'
         # Seleccionando los datos de la BD
         # query = '''SELECT * from Proveedor INNER JOIN Productos WHERE idNitProv = idNit ORDER BY idNitProv'''
-        query = f"SELECT * FROM Productos{id} ORDER BY idNit;" # hace lo mismo con menos
-        db_rows = self.run_Query(query) # db_rows contine la vista del query
+        query = f"SELECT * FROM Productos{where} ORDER BY IdNit;" # hace lo mismo con menos
+        db_rows = self.run_Query(query,() if id != "" else (id,)) # db_rows contine la vista del query
         
         # Insertando los datos de la BD en treeProductos de la pantalla
         for row in db_rows:
@@ -472,7 +475,7 @@ class Inventario:
         
         Retorna true si se aplico el cambio correctamente"""
         completado = False
-        WHERE = f'WHERE idNit = "{id}" AND Codigo = "{codigo}"'
+        WHERE = f'WHERE IdNit = ? AND Codigo = ?'
         datos = (
             (0, "Descripcion", desc),
             (1, "Und", unidad),
@@ -481,10 +484,11 @@ class Inventario:
             (4, "Fecha", fecha)
         )
         registroActual = self.run_Query(
-            f'SELECT Descripcion, Und, Cantidad, Precio, Fecha FROM Productos {WHERE};'
+            f'SELECT Descripcion, Und, Cantidad, Precio, Fecha FROM Productos {WHERE};',
+            (id, codigo)
             ).fetchone()
         if not registroActual:
-            mssg.showerror("Id/Codigo invalido", "No existe un producto con ese idNit y codigo")
+            mssg.showerror("Id/Codigo invalido", "No existe un producto con ese IdNit y Codigo")
             return False
         
         #para cambiar los datos del registro al mismo formato que el resto de datos
@@ -496,11 +500,17 @@ class Inventario:
                 ,registroActual
                 )
             )
-        cambiar = tuple(f'{k} = "{v}"' for i,k,v in datos if v != registroActual[i])
+        cambiar = []
+        parametros = []
+        for i,k,v in datos:
+            if v != registroActual[i]:
+                cambiar.append(f'{k} = ?')
+                parametros.append(v)
+                
         if cambiar and mssg.askokcancel("Confirmación","¿Desea editar la tabla Productos?"):
             cambiar = ", ".join(cambiar)
             try:
-                self.run_Query(f'UPDATE Productos SET {cambiar} {WHERE};')
+                self.run_Query(f'UPDATE Productos SET {cambiar} {WHERE};',(*parametros,id,codigo))
                 completado = True
             except:
                 mssg.showerror("Edicion fallida", "Fallo el cambio de datos en la tabla Productos")
@@ -516,22 +526,33 @@ class Inventario:
         
         Retorna true si se aplico el cambio correctamente"""
         completado = False
-        WHERE = f'WHERE idNitProv = "{id}"'
-        registroActual = self.run_Query(f'SELECT Ciudad,Razon_Social FROM Proveedor {WHERE};').fetchone()
+        WHERE = f'WHERE IdNitProv = ?'
+        registroActual = self.run_Query(
+            f'SELECT Ciudad,RazonSocial FROM Proveedor {WHERE};',
+            (id,)
+            ).fetchone()
         if not registroActual:
             mssg.showerror("Id invalido","No existe el idNit en la tabla Proveedor")
             return False
         registroActual = tuple(map(lambda x: x if x!=None else "NULL",registroActual))
         #valores a cambiar
         cambiar = []
-        if razon != registroActual[0]: cambiar.append(f'Razon_Social = "{razon}"')
-        if ciudad != registroActual[1]: cambiar.append(f'Ciudad = "{ciudad}"')
+        parametros = []
+        if razon != registroActual[0]:
+            cambiar.append(f'RazonSocial = ?')
+            parametros.append(razon)
+        if ciudad != registroActual[1]:
+            cambiar.append(f'Ciudad = ?')
+            parametros.append(ciudad)
         #Aplica los cambios
         
         if cambiar and mssg.askokcancel("Confirmación","¿Desea editar la tabla Proveedor?"):
             cambiar = ", ".join(cambiar)
             try:
-                self.run_Query(f'UPDATE Proveedor SET {cambiar} {WHERE};')
+                self.run_Query(
+                    f'UPDATE Proveedor SET {cambiar} {WHERE};',
+                    (*parametros, id)
+                   )
                 completado = True
             except:
                 mssg.showerror("Edicion fallida", "Fallo el cambio de datos en la tabla Proveedor")
@@ -558,7 +579,10 @@ class Inventario:
             invalido += "El campo codigo no puede estar vacio\n"
         elif (
             self.actualiza == None and
-            self.run_Query(f'SELECT count(*) FROM Productos WHERE Codigo = "{codigo}" AND idNit = "{id}"').fetchone()[0] != 0
+            self.run_Query(
+                'SELECT count(*) FROM Productos WHERE Codigo = ? AND IdNit = ?',
+                (codigo, id)
+                ).fetchone()[0] != 0
             ):
             invalido += f"El codigo {codigo} ya existe, los codigos deben ser unicos\n"
         #validadcion cantidad
@@ -594,11 +618,17 @@ class Inventario:
         
         existe = False
         if self.idExiste(id):
-            existe = bool(self.run_Query(f'SELECT COUNT(*) FROM Productos WHERE idNit = "{id}" AND Codigo = "{codigo}"').fetchone()[0])
+            existe = bool(self.run_Query(
+                'SELECT COUNT(*) FROM Productos WHERE idNit = ? AND Codigo = ?',
+                (id, codigo)
+                ).fetchone()[0])
         else:
             if mssg.askokcancel("Confirmación","Desea añadir los datos a la tabla Proveedor?"):
                 try:
-                    self.run_Query(f'INSERT INTO Proveedor VALUES("{id}", "{razon}", "{ciudad}");')
+                    self.run_Query(
+                        'INSERT INTO Proveedor VALUES(?, ?, ?);',
+                        (id, razon, ciudad)
+                        )
                 except Exception as e:
                     mssg.showerror("Resultado de la acción", "Ocurrio un error al intentar añadir datos a Proveedor")
                     return
@@ -612,15 +642,19 @@ class Inventario:
             mssg.showerror("Error","Ya existe un producto con misma idNit y Codigo")
             return
         if mssg.askokcancel("Confirmacion", "Desea añadir los datos a Productos?"):
-            row_Productos = f'"{id}", "{codigo}", "{desc}", "{unidad}", {cantidad}, {precio}, "{fecha}"'
+            rowProductos = (id,codigo, desc, unidad, cantidad, precio,fecha)
             try:
-                self.run_Query(f'INSERT INTO Productos VALUES({row_Productos});')
+                self.run_Query(
+                    'INSERT INTO Productos VALUES(?,?,?,?,?,?,?);',
+                    rowProductos
+                    )
             except Exception as e:
                 mssg.showerror("Resultado de la acción", "Ocurrio un error al intentar añadir datos a Productos")
                 return
             else:
                 mssg.showinfo("Resultado de la acción", "Se añadieron los items a Productos correctamente")
         self.lee_treeProductos(id)
+        self.limpiaCampos()
 
     def buscar(self):
         """Busca un idNit en la base de datos y la muestra en el treeview.
@@ -630,7 +664,10 @@ class Inventario:
         if id == "":
             mssg.showerror("Error Id", "El campo Id/Nit esta vacio")
         else:
-            idValues = tuple(self.run_Query(f'SELECT Ciudad,Razon_Social FROM Proveedor WHERE idNitProv = "{id}"').fetchone())
+            idValues = tuple(self.run_Query(
+                'SELECT Ciudad,RazonSocial FROM Proveedor WHERE idNitProv = ?',
+                (id,)
+                ).fetchone())
             if idValues:
                 self.lee_treeProductos(id)
                 self.ciudad.delete(0,'end')
@@ -671,12 +708,12 @@ class Inventario:
             
             datos = (codigo,desc,unidad,cantidad,precio,fecha)
             #Convertir datos dentro de entrys a valores a usar en querys
-            id = id.replace('"','""')
-            codigo = codigo.replace('"','""')
-            desc = "NULL" if desc == "" else desc.replace('"','""')
-            unidad = "NULL" if unidad == "" else unidad.replace('"','""')
-            razon = "NULL" if razon == "" else razon.replace('"','""')
-            ciudad = "NULL" if ciudad == "" else ciudad.replace('"','""')
+            # id = id.replace('"','""')
+            # codigo = codigo.replace('"','""')
+            # desc = "NULL" if desc == "" else desc.replace('"','""')
+            # unidad = "NULL" if unidad == "" else unidad.replace('"','""')
+            # razon = "NULL" if razon == "" else razon.replace('"','""')
+            # ciudad = "NULL" if ciudad == "" else ciudad.replace('"','""')
             cantidad = float(cantidad)
             precio = float(precio)
             
@@ -689,26 +726,67 @@ class Inventario:
                     self.idNit["state"] = "normal"
                     self.codigo["state"] = "normal"
                     self.treeProductos.item(self.actualiza,values=datos)
+                    self.limpiaCampos()
                     self.actualiza = None
+            
     
     def cancelar(self):
         self.limpiaCampos()
         self.deseleccionarTree()
+        self.cancelar_ventana()
         self.actualiza = None
         self.idNit["state"] = "normal"
         self.codigo["state"] = "normal"
         self.btnGrabar["state"]="normal"
         self.btnBuscar["state"]="normal"
         self.btnEditar["state"]="disabled"
-        self.btnEliminar["state"]="disabled"
     
     def deseleccionarTree(self):
         seleccion=self.treeProductos.selection()
         if seleccion:
             self.treeProductos.selection_remove(*seleccion)
     
+    def cancelar_ventana(self):
+        if self.ventana != None:
+            self.ventana.destroy()
+            self.ventana = None
+    #declara variable ventana
+    
+    def selecEliminar(self):
+        self.ventana = tk.Toplevel()
+        self.ventana.title("Confirmacion")
+        self.ventana.geometry("300x300")
+
+        self.ventana.rowconfigure((0,1,2,3,4),weight=1)
+        self.ventana.columnconfigure((0,1,2,3,4),weight=1)
+        boton_confirmar = tk.Button(self.ventana, text="Confirmar")
+        boton_confirmar.grid(row=4, column=1)
+        #advertencia
+        #ruta='C:\\Users\\Cardenas Reyes\\Downloads\\Proyecto-OOP-main\\tren-128x64.png'
+        #tren = PhotoImage(file=ruta)
+        #self.imagen1 = ttk.Label(ventana, image=tren,anchor="center")
+        #self.imagen1.pack()   
+
+        boton_cancelar = tk.Button(self.ventana, text="Cancelar", command= self.cancelar_ventana)
+        boton_cancelar.grid(row=4, column=2)
+        opcion_var = tk.IntVar()  # Variable de control para almacenar el valor seleccionado
+
+        radio_opcion1 = tk.Radiobutton(self.ventana, text="Eliminar Proveedor", variable=opcion_var, value=1)
+        radio_opcion1.grid(row=0, column=1)
+
+        radio_opcion2 = tk.Radiobutton(self.ventana, text="Eliminar solo Producto", variable=opcion_var, value=2)
+        radio_opcion2.grid(row=1, column=1)
+
+        radio_opcion2 = tk.Radiobutton(self.ventana, text="Eliminar todos los productos", variable=opcion_var, value=3)
+        radio_opcion2.grid(row=2, column=1)
+
+        self.clase = tk.IntVar()
+
+    
     def eliminaRegistro(self, event=None):
         '''Elimina un Registro en la BD'''
+        #ejecutar ventana (Por hacer)
+        
         
         if self.treeProductos.selection() == ():
             mssg.showinfo("Advertencia","Debe seleccionar los elementos que desea eliminar")
@@ -718,8 +796,11 @@ class Inventario:
             busqueda = self.treeProductos.item(self.treeProductos.selection()[0])['text'] #idNit de los elemento a eliminar, para buscar al final del proceso
             
             #agrega los datos de cada seleccion a las variables que se van a ejecutar
+            parametros = []
             for elemento in self.treeProductos.selection():
-                eliminar = f"(idNit = '{self.treeProductos.item(elemento)['text']}' and Codigo = '{self.treeProductos.item(elemento)['values'][0]}') or "
+                parametros.append(self.treeProductos.item(elemento)['text'])
+                parametros.append(self.treeProductos.item(elemento)['values'][0])
+                eliminar = "(IdNit = ? and Codigo = ?) or "
                 query += eliminar
                 mensaje_validacion += f"IdNit = {self.treeProductos.item(elemento)['text']}, Codigo = {self.treeProductos.item(elemento)['values'][0]}\n"
 
@@ -728,7 +809,7 @@ class Inventario:
 
             if valida_consulta:
                 try:
-                    self.run_Query(query)
+                    self.run_Query(query, parametros)
                 except:
                     mssg.showerror("Eliminacion fallida", "No se pudo eliminar los datos seleccionados de la base de datos")
                 else:
@@ -737,7 +818,7 @@ class Inventario:
 
                 #Verifica si el proveedor esta vacio
                 proveedor_Vacio = True 
-                for row in self.run_Query(f"SELECT * from Productos WHERE idNit = '{busqueda}'"):
+                for row in self.run_Query(f"SELECT * from Productos WHERE IdNit = ?",(busqueda,)):
                     if row != ():
                         proveedor_Vacio = False
                         break
@@ -747,7 +828,7 @@ class Inventario:
                     valida_eliminarProveedor = mssg.askokcancel("Advertencia",f"El proveedor con el IdNit = {busqueda} esta vacio.\n¿Desea eliminarlo de la tabla de Proveedores?")
                     if valida_eliminarProveedor:
                         try:
-                            self.run_Query(f"DELETE from Proveedor WHERE idNitProv = '{busqueda}'")
+                            self.run_Query(f"DELETE from Proveedor WHERE IdNitProv = ?",(busqueda,))
                         except:
                             mssg.showerror("Eleiminacion fallida", "No se ha podido eliminar el proveedor")
                         else:
