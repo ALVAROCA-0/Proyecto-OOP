@@ -231,6 +231,7 @@ class Inventario:
         self.btnEliminar = ttk.Button(self.frm2)
         self.btnEliminar.configure(text='Eliminar', command = self.selecEliminar)
         self.btnEliminar.grid(row=1, column=trailingCols+6)
+        self.ventana = None
 
         #Botón para cancelar una operación
         self.btnCancelar = ttk.Button(self.frm2)
@@ -260,10 +261,8 @@ class Inventario:
         seleccion=self.treeProductos.selection()
         if seleccion:
             self.btnEditar["state"] = "normal"
-            self.btnEliminar["state"] = "normal"
         else :
             self.btnEditar["state"] = "disabled"
-            self.btnEliminar["state"] = "disabled"
     
     #Rutina de centrado de pantalla
     def centra(self,win: tk.Tk,ancho,alto):
@@ -414,7 +413,7 @@ class Inventario:
         self.cantidad.delete(0,'end')
         self.precio.delete(0,'end')
         self.fecha.delete(0,'end')
-        self.fecha.insert(0,'dd/mm/aa')
+        self.fecha.insert(0,'dd/mm/aaaa')
     
     def carga_Datos(self, seleccion: str):
         """Rutina para cargar los datos del árbol a los entry correspondientes"""
@@ -449,11 +448,11 @@ class Inventario:
             self.treeProductos.delete(linea) # Límpia la filas del TreeView
         
         #si dan una id solo mostrar los datos con esa id
-        where = "" if id != ""else f' WHERE IdNit = ?'
+        where = "" if id == "" else f' WHERE IdNit = ?'
         # Seleccionando los datos de la BD
         # query = '''SELECT * from Proveedor INNER JOIN Productos WHERE idNitProv = idNit ORDER BY idNitProv'''
         query = f"SELECT * FROM Productos{where} ORDER BY IdNit;" # hace lo mismo con menos
-        db_rows = self.run_Query(query,() if id != "" else (id,)) # db_rows contine la vista del query
+        db_rows = self.run_Query(query,() if id == "" else (id,)) # db_rows contine la vista del query
         
         # Insertando los datos de la BD en treeProductos de la pantalla
         for row in db_rows:
@@ -648,7 +647,7 @@ class Inventario:
                     'INSERT INTO Productos VALUES(?,?,?,?,?,?,?);',
                     rowProductos
                     )
-            except Exception as e:
+            except:
                 mssg.showerror("Resultado de la acción", "Ocurrio un error al intentar añadir datos a Productos")
                 return
             else:
@@ -660,7 +659,7 @@ class Inventario:
         """Busca un idNit en la base de datos y la muestra en el treeview.
         
         Tambien se colocan los valores de ciudad y razon social de ese id en sus entry"""
-        id = self.idNit.get().replace('"','""')
+        id = self.idNit.get()
         if id == "":
             mssg.showerror("Error Id", "El campo Id/Nit esta vacio")
         else:
@@ -753,89 +752,141 @@ class Inventario:
     #declara variable ventana
     
     def selecEliminar(self):
+        self.cancelar_ventana()
         self.ventana = tk.Toplevel()
         self.ventana.title("Confirmacion")
         self.ventana.geometry("300x300")
+        self.ventana.minsize(200,150)
+        self.ventana.maxsize(300,300)
 
-        self.ventana.rowconfigure((0,1,2,3,4),weight=1)
-        self.ventana.columnconfigure((0,1,2,3,4),weight=1)
-        boton_confirmar = tk.Button(self.ventana, text="Confirmar")
-        boton_confirmar.grid(row=4, column=1)
+        self.ventana.rowconfigure((0,2,4,6),weight=2)
+        self.ventana.rowconfigure((8,), weight=1)
+        self.ventana.columnconfigure((0,2,4),weight=1)
         #advertencia
         #ruta='C:\\Users\\Cardenas Reyes\\Downloads\\Proyecto-OOP-main\\tren-128x64.png'
         #tren = PhotoImage(file=ruta)
         #self.imagen1 = ttk.Label(ventana, image=tren,anchor="center")
         #self.imagen1.pack()   
+        boton_confirmar = tk.Button(self.ventana, text="Confirmar", command=self.eliminaRegistro)
+        boton_confirmar.grid(row=7, column=1, sticky="news")
 
         boton_cancelar = tk.Button(self.ventana, text="Cancelar", command= self.cancelar_ventana)
-        boton_cancelar.grid(row=4, column=2)
-        opcion_var = tk.IntVar()  # Variable de control para almacenar el valor seleccionado
+        boton_cancelar.grid(row=7, column=3, sticky="news")
+        self.opcion_var = tk.IntVar()  # Variable de control para almacenar el valor seleccionado
 
-        radio_opcion1 = tk.Radiobutton(self.ventana, text="Eliminar Proveedor", variable=opcion_var, value=1)
-        radio_opcion1.grid(row=0, column=1)
+        radio_opcion1 = tk.Radiobutton(self.ventana, text="Eliminar proveedor", variable=self.opcion_var, value=1)
+        radio_opcion1.grid(row=1, column=1, columnspan=3, sticky="news")
 
-        radio_opcion2 = tk.Radiobutton(self.ventana, text="Eliminar solo Producto", variable=opcion_var, value=2)
-        radio_opcion2.grid(row=1, column=1)
+        radio_opcion2 = tk.Radiobutton(self.ventana, text="Eliminar productos seleccionados", variable=self.opcion_var, value=2)
+        radio_opcion2.grid(row=3, column=1, columnspan=3, sticky="news")
 
-        radio_opcion2 = tk.Radiobutton(self.ventana, text="Eliminar todos los productos", variable=opcion_var, value=3)
-        radio_opcion2.grid(row=2, column=1)
+        radio_opcion3 = tk.Radiobutton(self.ventana, text="Eliminar todos los productos", variable=self.opcion_var, value=3)
+        radio_opcion3.grid(row=5, column=1, columnspan=3, sticky="news")
 
         self.clase = tk.IntVar()
 
     
-    def eliminaRegistro(self, event=None):
+    def eliminaRegistro(self):
         '''Elimina un Registro en la BD'''
-        #ejecutar ventana (Por hacer)
-        
-        
-        if self.treeProductos.selection() == ():
-            mssg.showinfo("Advertencia","Debe seleccionar los elementos que desea eliminar")
-        else:
-            query = f"DELETE from Productos WHERE " #inicio del query que se actulizara con cada elemento seleccionado
+        idNit = self.idNit.get()
+
+        if self.opcion_var.get() == 1:
+            #validaciones----------------------------------------------------------------
+            if idNit == "": #Valida que el Entry de IdNit no este vacio 
+                mssg.showerror("Eliminacion fallida", "No ha sido proporcionado un IdNit existente")
+                self.cancelar_ventana()
+                return
+            
+            consulta = self.run_Query("SELECT * FROM Proveedor WHERE IdNitProv = ?",(idNit,)).fetchall()
+            if not consulta: #Valida que exista un proveedor con el IdNit proporcionado
+                mssg.showerror("Eliminacion fallida", "No ha sido proporcionado un IdNit valido para eliminar")
+                self.cancelar_ventana()
+                return
+
+            #Se hace el proceso de eliminacion con sus puntos de confirmacion------------
+            valida_Consulta = mssg.askokcancel("Confirmacion",f"Se eliminara el proveedor con el id {idNit} y todos sus productos asociados")
+            if valida_Consulta:
+                try:
+                    self.run_Query("DELETE FROM Productos WHERE IdNit = ? ",(idNit,))
+                except:
+                    mssg.showerror("Eliminacion Fallida","Ha habido un error al eliminar los productos asociados al Proveedor")
+                else:
+                    try:
+                        self.run_Query("DELETE FROM Proveedor WHERE IdNitProv = ?",(idNit,))
+                    except:
+                        mssg.showerror("Eliminacion Fallida","Ha habido un error al eliminar el Proveedor")
+                    else:
+                        mssg.showinfo("Eliminacion Completada",f"Se ha eliminado el Proveedor de IdNit = {idNit} y todos sus productos asociados")
+                        self.lee_treeProductos(idNit)
+            self.cancelar_ventana()
+            
+        elif self.opcion_var.get() == 2:
+            #validacion------------------------------------------------------------------
+            if self.treeProductos.selection() == ():
+                mssg.showinfo("Advertencia","Debe seleccionar los elementos que desea eliminar")
+                self.cancelar_ventana()
+                return
+            
+            #eliminacion-----------------------------------------------------------------
+            query = f"DELETE from Productos WHERE IdNit = ? and (" #inicio del query que se actulizara con cada elemento seleccionado
             mensaje_validacion = f"¿Esta seguro de eliminar los siguientes registros de la base de datos?\n" #mensaje de la ventana emergente que se actulizara con cada elemento seleccionado
             busqueda = self.treeProductos.item(self.treeProductos.selection()[0])['text'] #idNit de los elemento a eliminar, para buscar al final del proceso
             
             #agrega los datos de cada seleccion a las variables que se van a ejecutar
             parametros = []
             for elemento in self.treeProductos.selection():
-                parametros.append(self.treeProductos.item(elemento)['text'])
-                parametros.append(self.treeProductos.item(elemento)['values'][0])
-                eliminar = "(IdNit = ? and Codigo = ?) or "
-                query += eliminar
-                mensaje_validacion += f"IdNit = {self.treeProductos.item(elemento)['text']}, Codigo = {self.treeProductos.item(elemento)['values'][0]}\n"
+                codigo = self.treeProductos.item(elemento)['values'][0]
+                parametros.append(codigo)
+                query += "Codigo = ? or "
+                mensaje_validacion += f"IdNit = {busqueda}, Codigo = {codigo}\n"
 
-            query = query[:-3] #limpia el texto del query que se va a ejecutar
-            valida_consulta = mssg.askokcancel("Advertencia",mensaje_validacion) #crea la ventana emergente de validacion
+            query = query[:-4] #limpia el texto del query que se va a ejecutar
+            query += ")" #cierra el parentesis donde estan todos los codigos
+            valida_Consulta = mssg.askokcancel("Confirmacion",mensaje_validacion) #crea la ventana emergente de validacion
 
-            if valida_consulta:
+            if valida_Consulta:
                 try:
-                    self.run_Query(query, parametros)
+                    self.run_Query(query, (busqueda,*parametros))
                 except:
                     mssg.showerror("Eliminacion fallida", "No se pudo eliminar los datos seleccionados de la base de datos")
                 else:
                     mssg.showinfo("Eliminacion Terminada","Se han eliminado los productos seleccionados de la base de datos")
                 self.lee_treeProductos(busqueda) #Busca y muestra los elementos del idNit restantes despues de la eliminacion
+            self.cancelar_ventana()
 
-                #Verifica si el proveedor esta vacio
-                proveedor_Vacio = True 
-                for row in self.run_Query(f"SELECT * from Productos WHERE IdNit = ?",(busqueda,)):
-                    if row != ():
-                        proveedor_Vacio = False
-                        break
-                
-                #Si el proveedor no tiene productos, se consulta la eliminacion del proveedor
-                if proveedor_Vacio:
-                    valida_eliminarProveedor = mssg.askokcancel("Advertencia",f"El proveedor con el IdNit = {busqueda} esta vacio.\n¿Desea eliminarlo de la tabla de Proveedores?")
-                    if valida_eliminarProveedor:
-                        try:
-                            self.run_Query(f"DELETE from Proveedor WHERE IdNitProv = ?",(busqueda,))
-                        except:
-                            mssg.showerror("Eleiminacion fallida", "No se ha podido eliminar el proveedor")
-                        else:
-                            mssg.showinfo("Eliminacion Terminada","Se ha eliminado el proveedor")
-            else:
-                mssg.showinfo("Eliminacion Cancelada","Se ha cancelado la eliminacion de los productos seleccionados")
-                self.limpiaCampos()
+        elif self.opcion_var.get() == 3:
+            #validacion------------------------------------------------------------------
+            if idNit == "": #Valida que el Entry de IdNit no este vacio 
+                mssg.showerror("Eliminacion fallida", "No ha sido proporcionado un IdNit valido para eliminar")
+                self.cancelar_ventana()
+                return
+            
+            consulta = self.run_Query("SELECT * FROM Proveedor WHERE IdNitProv = ?",(idNit,)).fetchall()
+            if not consulta: #Valida que exista un proveedor con el IdNit proporcionado
+                mssg.showerror("Eliminacion fallida", "No ha sido proporcionado un IdNit existente")
+                self.cancelar_ventana()
+                return
+            #Valida que existan Productos asociados al IdNit proporcionado 
+            consulta_Proveedor = self.run_Query("SELECT * FROM Productos WHERE IdNit = ?",(idNit,)).fetchall()
+            if not consulta_Proveedor:
+                mssg.showerror("Eliminacion Fallida","No existen Productos asociados al Proveedor proporcionado")
+                self.cancelar_ventana()
+                return
+            
+            #eliminacion-----------------------------------------------------------------
+            #Ejecuta la eliminacion de todos los productos asociados al Proveedor proporcionado, con su respectiva confirmacion
+            valida_Consulta = mssg.askokcancel("Confirmacion",f"Se eliminaran {len(consulta_Proveedor)} Productos asociados al Proveedor {idNit}")
+
+            if valida_Consulta:
+                try:
+                    self.run_Query("DELETE FROM Productos WHERE IdNit = ?",(idNit,))
+                except:
+                    mssg.showerror("Eliminacion Fallida","No fue posible eliminar los productos")
+                else:
+                    mssg.showinfo("Eliminacion Terminada",f"Se han eliminado {len(consulta_Proveedor)} Productos de la tabla Productos")
+                    self.lee_treeProductos(idNit)
+            #sin importar lo que pase cerrar la ventana
+            self.cancelar_ventana()
 
 if __name__ == "__main__":
     app = Inventario()
