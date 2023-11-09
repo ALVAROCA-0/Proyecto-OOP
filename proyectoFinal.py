@@ -104,7 +104,7 @@ class Inventario:
         self.lblUnd.grid(row=4, column=12, sticky="we", pady=25, padx=5)
 
         #Captura la unidad o medida del Producto
-        self.unidad = ttk.Entry(self.frm1, width=10)
+        self.unidad = ttk.Entry(self.frm1, width=12)
         self.unidad.grid(row=4, column=13, sticky="w", pady=25)
 
         #Etiqueta cantidad del Producto
@@ -132,7 +132,7 @@ class Inventario:
 
         #Captura la fecha de compra del Producto
         self.fecha_sv = tk.StringVar(value="dd/mm/aaaa")
-        self.fecha = ttk.Entry(self.frm1, width=10, textvariable=self.fecha_sv, )
+        self.fecha = ttk.Entry(self.frm1, width=12, textvariable=self.fecha_sv, )
         self.fecha.grid(row=7, column=13, sticky="w", pady=25)
         for i in ("Button-1", "Left", "Right", "Key","BackSpace", "space"):
             self.fecha.bind(f"<{i}>", self.validaFecha)
@@ -456,7 +456,6 @@ class Inventario:
         
         # Insertando los datos de la BD en treeProductos de la pantalla
         for row in db_rows:
-            # self.treeProductos.insert('',0, text = row[0], values = [row[4],row[5],row[6],row[7],row[8],row[9]])
             self.treeProductos.insert('',0, text = row[0], values = row[1:])
     
     def editarProductos(
@@ -559,7 +558,7 @@ class Inventario:
                 mssg.showinfo("Edicion completada", "Se completo cambio de datos en la tabla Proveedor")
         return completado
     
-    def validacionCampos(self) -> bool:
+    def validacionCampos(self, productos: bool) -> bool:
         """Valida los datos en los entry, avisa al usuario de datos invalidos
         y retorna false si hay datos invalidos; True si todos son validos"""
         #validaciones de descripcion, unidad, razon social, y ciudad son innecesarias
@@ -572,30 +571,30 @@ class Inventario:
         elif id == "":
             invalido += "El campo ID no puede estar vacio\n"
         id = id.replace('"','""')
-        #validacion codigo
+        
         codigo = self.codigo.get().replace('"','""')
-        if codigo == "":
-            invalido += "El campo codigo no puede estar vacio\n"
-        elif (
-            self.actualiza == None and
-            self.run_Query(
-                'SELECT count(*) FROM Productos WHERE Codigo = ? AND IdNit = ?',
-                (codigo, id)
-                ).fetchone()[0] != 0
-            ):
-            invalido += f"El codigo {codigo} ya existe, los codigos deben ser unicos\n"
-        #validadcion cantidad
-        cantidad = self.cantidad.get()
-        if (not cantidad.replace(".","").isnumeric()) or float(cantidad) < 0:
-            invalido += "Las cantidades deben ser números positivos\n"
-        #validadcion precio
-        precio = self.precio.get()
-        if (not precio.replace(".","").isnumeric()) or float(precio) < 0:
-            invalido += "Los precios deben ser números positivos\n"
-        #validadcion fecha
-        fechaValida, porque = self.isFechaValida(self.fecha.get())
-        if not fechaValida:
-            invalido += porque
+        if codigo != "":
+            #validacion codigo
+            if (
+                self.actualiza == None and
+                self.run_Query(
+                    'SELECT count(*) FROM Productos WHERE Codigo = ? AND IdNit = ?',
+                    (codigo, id)
+                    ).fetchone()[0] != 0
+                ):
+                invalido += f"El codigo {codigo} ya existe, los codigos deben ser unicos\n"
+            #validadcion cantidad
+            cantidad = self.cantidad.get()
+            if (not cantidad.replace(".","").isnumeric()) or float(cantidad) < 0:
+                invalido += "Las cantidades deben ser números positivos\n"
+            #validadcion precio
+            precio = self.precio.get()
+            if (not precio.replace(".","").isnumeric()) or float(precio) < 0:
+                invalido += "Los precios deben ser números positivos\n"
+            #validadcion fecha
+            fechaValida, porque = self.isFechaValida(self.fecha.get())
+            if not fechaValida:
+                invalido += porque
         
         if invalido:
             mssg.showerror("¡Datos Incorrectos!!!", str(invalido.removesuffix("\n")))
@@ -617,10 +616,12 @@ class Inventario:
         
         existe = False
         if self.idExiste(id):
-            existe = bool(self.run_Query(
+            if bool(self.run_Query(
                 'SELECT COUNT(*) FROM Productos WHERE idNit = ? AND Codigo = ?',
                 (id, codigo)
-                ).fetchone()[0])
+                ).fetchone()[0]):
+                mssg.showerror("Error","Ya existe un producto con misma idNit y Codigo")
+                return
         else:
             if mssg.askokcancel("Confirmación","Desea añadir los datos a la tabla Proveedor?"):
                 try:
@@ -636,10 +637,6 @@ class Inventario:
             else:
                 mssg.showinfo("Cancelando", "Cancelando guardado de registro")
                 return
-        if existe:
-            print (existe)
-            mssg.showerror("Error","Ya existe un producto con misma idNit y Codigo")
-            return
         if mssg.askokcancel("Confirmacion", "Desea añadir los datos a Productos?"):
             rowProductos = (id,codigo, desc, unidad, cantidad, precio,fecha)
             try:
@@ -663,10 +660,10 @@ class Inventario:
         if id == "":
             mssg.showerror("Error Id", "El campo Id/Nit esta vacio")
         else:
-            idValues = tuple(self.run_Query(
+            idValues = self.run_Query(
                 'SELECT Ciudad,RazonSocial FROM Proveedor WHERE idNitProv = ?',
                 (id,)
-                ).fetchone())
+                ).fetchone()
             if idValues:
                 self.lee_treeProductos(id)
                 self.ciudad.delete(0,'end')
@@ -706,13 +703,6 @@ class Inventario:
             fecha = self.fecha.get()
             
             datos = (codigo,desc,unidad,cantidad,precio,fecha)
-            #Convertir datos dentro de entrys a valores a usar en querys
-            # id = id.replace('"','""')
-            # codigo = codigo.replace('"','""')
-            # desc = "NULL" if desc == "" else desc.replace('"','""')
-            # unidad = "NULL" if unidad == "" else unidad.replace('"','""')
-            # razon = "NULL" if razon == "" else razon.replace('"','""')
-            # ciudad = "NULL" if ciudad == "" else ciudad.replace('"','""')
             cantidad = float(cantidad)
             precio = float(precio)
             
