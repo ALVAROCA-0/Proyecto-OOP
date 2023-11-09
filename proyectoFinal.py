@@ -176,7 +176,7 @@ class Inventario:
         self.treeProductos.heading("Precio",      anchor="center", text='Precio')
         self.treeProductos.heading("Fecha",       anchor="center", text='Fecha')
 
-        self.treeProductos.bind("<<TreeviewSelect>>", self.habilitarEdicion)
+        # self.treeProductos.bind("<<TreeviewSelect>>", self.habilitarEdicion)
         self.treeProductos.grid(row=11, column=0, columnspan=16, sticky="news")
 
         #Scrollbar en el eje Y de treeProductos
@@ -224,7 +224,7 @@ class Inventario:
 
         #Botón para Editar los datos
         self.btnEditar = ttk.Button(self.frm2)
-        self.btnEditar.configure(text='Editar', command=self.editar, state="disabled")
+        self.btnEditar.configure(text='Editar', command=self.editar)
         self.btnEditar.grid(row=1, column=trailingCols+4)
 
         #Botón para Elimnar datos
@@ -257,12 +257,12 @@ class Inventario:
 
     # Métodos utilitarios del sistema-----------------------------------------
     
-    def habilitarEdicion(self, event):
-        seleccion=self.treeProductos.selection()
-        if seleccion:
-            self.btnEditar["state"] = "normal"
-        else :
-            self.btnEditar["state"] = "disabled"
+    # def habilitarEdicion(self, event):
+    #     seleccion=self.treeProductos.selection()
+    #     if seleccion:
+    #         self.btnEditar["state"] = "normal"
+    #     else :
+    #         self.btnEditar["state"] = "disabled"
     
     #Rutina de centrado de pantalla
     def centra(self,win: tk.Tk,ancho,alto):
@@ -447,11 +447,11 @@ class Inventario:
         for linea in tabla_TreeView:
             self.treeProductos.delete(linea) # Límpia la filas del TreeView
         
-        #si dan una id solo mostrar los datos con esa id
-        where = "" if id == "" else f' WHERE IdNit = ?'
+        if id == "":
+            return
         # Seleccionando los datos de la BD
         # query = '''SELECT * from Proveedor INNER JOIN Productos WHERE idNitProv = idNit ORDER BY idNitProv'''
-        query = f"SELECT * FROM Productos{where} ORDER BY IdNit;" # hace lo mismo con menos
+        query = f"SELECT * FROM Productos WHERE IdNit = ? ORDER BY IdNit;" # hace lo mismo con menos
         db_rows = self.run_Query(query,() if id == "" else (id,)) # db_rows contine la vista del query
         
         # Insertando los datos de la BD en treeProductos de la pantalla
@@ -558,7 +558,7 @@ class Inventario:
                 mssg.showinfo("Edicion completada", "Se completo cambio de datos en la tabla Proveedor")
         return completado
     
-    def validacionCampos(self, productos: bool) -> bool:
+    def validacionCampos(self) -> bool:
         """Valida los datos en los entry, avisa al usuario de datos invalidos
         y retorna false si hay datos invalidos; True si todos son validos"""
         #validaciones de descripcion, unidad, razon social, y ciudad son innecesarias
@@ -574,7 +574,6 @@ class Inventario:
         
         codigo = self.codigo.get().replace('"','""')
         if codigo != "":
-            #validacion codigo
             if (
                 self.actualiza == None and
                 self.run_Query(
@@ -582,15 +581,17 @@ class Inventario:
                     (codigo, id)
                     ).fetchone()[0] != 0
                 ):
-                invalido += f"El codigo {codigo} ya existe, los codigos deben ser unicos\n"
+                invalido += f"El codigo {codigo} para el proveedor {id} ya existe, los codigos deben ser unicos\n"
             #validadcion cantidad
             cantidad = self.cantidad.get()
-            if (not cantidad.replace(".","").isnumeric()) or float(cantidad) < 0:
-                invalido += "Las cantidades deben ser números positivos\n"
+            if cantidad != "":
+                if (not cantidad.replace(".","").isnumeric()) or float(cantidad) < 0:
+                    invalido += "Las cantidades deben ser números positivos\n"
             #validadcion precio
             precio = self.precio.get()
-            if (not precio.replace(".","").isnumeric()) or float(precio) < 0:
-                invalido += "Los precios deben ser números positivos\n"
+            if precio != "":
+                if (not precio.replace(".","").isnumeric()) or float(precio) < 0:
+                    invalido += "Los precios deben ser números positivos\n"
             #validadcion fecha
             fechaValida, porque = self.isFechaValida(self.fecha.get())
             if not fechaValida:
@@ -616,7 +617,10 @@ class Inventario:
         
         existe = False
         if self.idExiste(id):
-            if bool(self.run_Query(
+            if codigo == "":
+                mssg.showerror("Error","Este proveedor ya existe, si desea editarlo presione editar")
+                return
+            elif bool(self.run_Query(
                 'SELECT COUNT(*) FROM Productos WHERE idNit = ? AND Codigo = ?',
                 (id, codigo)
                 ).fetchone()[0]):
@@ -637,7 +641,7 @@ class Inventario:
             else:
                 mssg.showinfo("Cancelando", "Cancelando guardado de registro")
                 return
-        if mssg.askokcancel("Confirmacion", "Desea añadir los datos a Productos?"):
+        if codigo != "" and mssg.askokcancel("Confirmacion", "Desea añadir los datos a Productos?"):
             rowProductos = (id,codigo, desc, unidad, cantidad, precio,fecha)
             try:
                 self.run_Query(
@@ -677,7 +681,26 @@ class Inventario:
     def editar(self, event: tk.Event=None) -> None:
         """Rutina para cuando se presiona editar"""
         seleccion = self.treeProductos.selection()
-        if len(seleccion) == 1:
+        if len(seleccion) == 0:
+            id = self.idNit.get()
+            if id == "":
+                mssg.showerror("Error editar", "Debe haber un IdNit para editar un Proveedor o seleccionar un registro a editar")
+            else:
+                idValues = self.run_Query(
+                    'SELECT Ciudad,RazonSocial FROM Proveedor WHERE idNitProv = ?',
+                    (id,)
+                    ).fetchone()
+                if idValues:
+                    self.ciudad["state"] = "normal"
+                    self.razonSocial["state"] = "normal"
+                    self.ciudad.delete(0,'end')
+                    self.razonSocial.delete(0,'end')
+                    self.ciudad.insert(0, "" if idValues[0]==None else idValues[0])
+                    self.razonSocial.insert(0, "" if idValues[1]==None else idValues[1])
+                    self.actualiza = True
+                else:
+                    mssg.showerror("Error Id", f"No existe el id: {id}")
+        elif len(seleccion) == 1:
             self.carga_Datos(seleccion[0])
             self.deseleccionarTree()
             self.idNit["state"] = "readonly"
@@ -703,32 +726,38 @@ class Inventario:
             fecha = self.fecha.get()
             
             datos = (codigo,desc,unidad,cantidad,precio,fecha)
-            cantidad = float(cantidad)
-            precio = float(precio)
+            if codigo != "":
+                if cantidad != "": cantidad = float(cantidad)
+                if precio != "": precio = float(precio)
             
             #si se esta adicionando un nuevo registro
             if self.actualiza == None:
                 self.adiciona_Registro(id,codigo,desc,unidad,razon,ciudad,cantidad,precio,fecha)
             else: #si se esta editando un registro
                 self.editarProveedor(id,razon,ciudad)
-                if self.editarProductos(id,codigo,desc,unidad,cantidad,precio,fecha):
-                    self.idNit["state"] = "normal"
-                    self.codigo["state"] = "normal"
-                    self.treeProductos.item(self.actualiza,values=datos)
-                    self.limpiaCampos()
-                    self.actualiza = None
+                if codigo != "":
+                    if self.editarProductos(id,codigo,desc,unidad,cantidad,precio,fecha):
+                        self.idNit["state"] = "normal"
+                        self.codigo["state"] = "normal"
+                        self.treeProductos.item(self.actualiza,values=datos)
+                    else:
+                        return
+                self.actualiza = None
+                self.limpiaCampos()
+                
             
     
     def cancelar(self):
         self.limpiaCampos()
+        self.lee_treeProductos("")
         self.deseleccionarTree()
         self.cancelar_ventana()
+        
         self.actualiza = None
         self.idNit["state"] = "normal"
         self.codigo["state"] = "normal"
         self.btnGrabar["state"]="normal"
         self.btnBuscar["state"]="normal"
-        self.btnEditar["state"]="disabled"
     
     def deseleccionarTree(self):
         seleccion=self.treeProductos.selection()
