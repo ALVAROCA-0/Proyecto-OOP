@@ -187,56 +187,39 @@ class Inventario:
         #Frame 2 para contener los botones
         self.frm2 = ttk.Frame(self.main_frame)
         self.frm2.configure()
-        trailingCols = 10
-        self.frm2.columnconfigure(
-            (
-                *range(trailingCols),
-                trailingCols+1,
-                trailingCols+3,
-                trailingCols+5,
-                trailingCols+7,
-                *range(trailingCols+9,2*trailingCols+8)
-            ),
-            weight=1
-            )
-        self.frm2.columnconfigure(
-            (
-                trailingCols,
-                trailingCols+2,
-                trailingCols+4,
-                trailingCols+6,
-                trailingCols+8,
-            ),
-            minsize=70,
-            weight=0
-            )
+        #primera y ultima columna
+        self.frm2.columnconfigure((0, 10), weight=4)
+        #columnas entre botones
+        self.frm2.columnconfigure((2, 4, 6, 8), weight=1)
+        # columnas de los botones
+        self.frm2.columnconfigure((1, 3, 5, 7, 9), minsize=70, weight=0)
         self.frm2.rowconfigure((0,2), weight=1)
 
         #Botón para Buscar un Proveedor
         self.btnBuscar = ttk.Button(self.frm2)
         self.btnBuscar.configure(text='Buscar', command=self.buscar)
-        self.btnBuscar.grid(row=1, column=trailingCols)
+        self.btnBuscar.grid(row=1, column=1)
 
         #Botón para Guardar los datos
         self.btnGrabar = ttk.Button(self.frm2)
         self.btnGrabar.configure(text='Grabar', command=self.grabar)
-        self.btnGrabar.grid(row=1, column=trailingCols+2)
+        self.btnGrabar.grid(row=1, column=3)
 
         #Botón para Editar los datos
         self.btnEditar = ttk.Button(self.frm2)
         self.btnEditar.configure(text='Editar', command=self.editar)
-        self.btnEditar.grid(row=1, column=trailingCols+4)
+        self.btnEditar.grid(row=1, column=5)
 
         #Botón para Elimnar datos
         self.btnEliminar = ttk.Button(self.frm2)
         self.btnEliminar.configure(text='Eliminar', command = self.selecEliminar)
-        self.btnEliminar.grid(row=1, column=trailingCols+6)
+        self.btnEliminar.grid(row=1, column=7)
         self.ventana = None
 
         #Botón para cancelar una operación
         self.btnCancelar = ttk.Button(self.frm2)
         self.btnCancelar.configure(text='Cancelar',command = self.cancelar)
-        self.btnCancelar.grid(row=1, column=trailingCols+8)
+        self.btnCancelar.grid(row=1, column=9)
 
         #Ubicación del Frame 2
         self.frm2.pack(side="bottom", anchor="s", expand=True, fill="both")
