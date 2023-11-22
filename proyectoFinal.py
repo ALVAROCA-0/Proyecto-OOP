@@ -229,6 +229,39 @@ class Inventario:
         self.frm1.pack(side="top", expand=True, fill="both")
         self.tabs.add(self.mainFrame, compound="center", text='Ingreso de datos')
         self.tabs.pack(side="top", expand=True, fill="both")
+        
+        #ventana emergente eliminar
+        self.ventana = tk.Toplevel()
+        self.ventana.title("Confirmacion")
+        self.ventana.geometry("300x300")
+        self.ventana.minsize(200,150)
+        self.ventana.maxsize(300,300)
+        self.ventana.protocol("WM_DELETE_WINDOW",self.cancelarVentana)
+
+        self.ventana.rowconfigure((0,2,4,6),weight=2)
+        self.ventana.rowconfigure((8,), weight=1)
+        self.ventana.columnconfigure((0,2,4),weight=1)
+        #advertencia
+        #ruta='C:\\Users\\Cardenas Reyes\\Downloads\\Proyecto-OOP-main\\tren-128x64.png'
+        #tren = PhotoImage(file=ruta)
+        #self.imagen1 = ttk.Label(ventana, image=tren,anchor="center")
+        #self.imagen1.pack()   
+        botonConfirmar = ttk.Button(self.ventana, text="Confirmar", command=self.eliminaRegistro)
+        botonConfirmar.grid(row=7, column=1, sticky="news")
+
+        botonCancelar = ttk.Button(self.ventana, text="Cancelar", command= self.cancelarVentana)
+        botonCancelar.grid(row=7, column=3, sticky="news")
+        self.opcionVar = tk.IntVar()  # Variable de control para almacenar el valor seleccionado
+
+        radioOpcion1 = ttk.Radiobutton(self.ventana, text="Eliminar proveedor", variable=self.opcionVar, value=1)
+        radioOpcion1.grid(row=1, column=1, columnspan=3, sticky="news")
+
+        radioOpcion2 = ttk.Radiobutton(self.ventana, text="Eliminar productos seleccionados", variable=self.opcionVar, value=2)
+        radioOpcion2.grid(row=3, column=1, columnspan=3, sticky="news")
+
+        radioOpcion3 = ttk.Radiobutton(self.ventana, text="Eliminar todos los productos", variable=self.opcionVar, value=3)
+        radioOpcion3.grid(row=5, column=1, columnspan=3, sticky="news")
+        self.ventana.withdraw()
 
     def run(self):
         """Fución de manejo de eventos del sistema"""
@@ -306,21 +339,21 @@ class Inventario:
         """ Mantiene correctamente escrita a la variable fecha"""
         #nota: esta funcion ocurre antes de que se le aplicen cambios al entry por el usuario
         
-        brk = False #si es True interrumpe la entrada de valores a self.fecha
-        if event.type == 1: position = self.fecha.index("insert")
-        else: position = self.fecha.index("insert") #El indice donde se encuentra el cusor
+        if event.type == 1: return #cuando hace click en el entry no debe hacer nada
+        brk = False #si es True interrumpe el cambio de valores a self.fecha
+        position = self.fecha.index("insert") #El indice donde se encuentra el cusor
         
         seleccionado = False
         #si esta selecionada parte del texto
         if self.fecha.select_present():
             seleccionado = True
             position = self.fecha.index("sel.first")
-            self.fecha.after_idle(self.fecha.select_clear)
-            brk = True
-            self.fecha.after_idle(self.fecha.icursor, position+1)
+            final = self.fecha.index("sel.last")
+            self.fecha.select_clear()
+            self.fecha.icursor(position)
+            brk = True #para que la multiple seleccion no borre más datos del entry
         #modificacion del texto dentro del entry -----------------------------------
-        #si esta entrando un numero
-        if event.keysym.isnumeric():
+        if event.keysym.isnumeric(): #si esta entrando un numero
             #quitar el caracter que estaba en ese espacio
             if position < 10 and not position in (2,5):
                 self.fecha.delete(position, position+1)
@@ -331,22 +364,26 @@ class Inventario:
             else:
                 brk = True
         #si esta borrando
-        elif event.keysym == "BackSpace" and position > 0:
+        elif event.keysym == "BackSpace":
             #si se seleccionó texto moverlo hacia adelante (se maneja mejor)
-            if seleccionado: position += 1
-            #reemplazar caracter a borrar con el correspondiente ('d', 'm', o 'a')
-            char = "a"
-            if position <= 3: char = "d"
-            elif position <= 6: char = "m" 
-            #si esta despues de un '/' mover el cursor hacia atras para no borrarlo
-            if position in (3, 6):
-                position -= 1 
-            position -= 1
-            self.fecha.delete(position,position+1)
-            self.fecha.insert(position, char)
-            #reposicionar el cursor despues de modificar el entry
-            self.fecha.after_idle(self.fecha.icursor, position)
-            brk = True
+            if seleccionado:
+                self.fecha.delete(position,final)
+                print(position,final)
+                self.fecha.insert(position,"dd/mm/aaaa"[position:final])
+                self.fecha.icursor(position)
+            elif position > 0:
+                #reemplazar caracter a borrar con el correspondiente ('d', 'm', o 'a')
+                char = "a"
+                if position <= 3: char = "d"
+                elif position <= 6: char = "m" 
+                #si esta despues de un '/' mover el cursor hacia atras para no borrarlo
+                if position in (3, 6): position -= 1 
+                position -= 1 #mover el cusor una posicion atras
+                self.fecha.delete(position,position+1)
+                self.fecha.insert(position, char)
+                #reposicionar el cursor despues de modificar el entry
+                self.fecha.icursor(position)
+                brk = True
         elif len(event.char) >= 1 and int(event.type) != 4:
             #borra el ultimo caracter digitado
             brk = True
@@ -365,15 +402,14 @@ class Inventario:
         if event.char.isnumeric():
             position = self.fecha.index("insert")#volver a la posicion del cursor original
             valorFecha = valorFecha[:position]+event.char+valorFecha[position:]
-        #si todos los valores de fecha son numeros (exepto los '/')
-        #osea ya es una fecha
+        #si todos los valores de fecha son numeros (exepto los '/') osea ya es una fecha
         if (valorFecha.replace("/","")).isnumeric():
             if self.isFechaValida(valorFecha)[0]:
                 self.fecha.configure(foreground="black")
             else:
                 self.fecha.configure(foreground="red")
         
-        #en caso de que el largo de fecha sea mayor a 10 repararlo
+        #en caso de que el largo de fecha sea mayor a 10 borrar los caracteres extra
         if len(valorFecha)>10: self.fecha.delete(10,"end")
         
         #cuando un metodo que se ejecuto por bind y retorna "break" no se
@@ -746,44 +782,12 @@ class Inventario:
             self.treeProductos.selection_remove(*seleccion)
     
     def cancelarVentana(self):
-        if self.ventana != None:
-            self.ventana.destroy()
-            self.ventana = None
+        self.ventana.withdraw()
+        self.opcionVar.set(0)
     #declara variable ventana
     
     def selecEliminar(self):
-        self.cancelarVentana()
-        self.ventana = tk.Toplevel()
-        self.ventana.title("Confirmacion")
-        self.ventana.geometry("300x300")
-        self.ventana.minsize(200,150)
-        self.ventana.maxsize(300,300)
-
-        self.ventana.rowconfigure((0,2,4,6),weight=2)
-        self.ventana.rowconfigure((8,), weight=1)
-        self.ventana.columnconfigure((0,2,4),weight=1)
-        #advertencia
-        #ruta='C:\\Users\\Cardenas Reyes\\Downloads\\Proyecto-OOP-main\\tren-128x64.png'
-        #tren = PhotoImage(file=ruta)
-        #self.imagen1 = ttk.Label(ventana, image=tren,anchor="center")
-        #self.imagen1.pack()   
-        botonConfirmar = ttk.Button(self.ventana, text="Confirmar", command=self.eliminaRegistro)
-        botonConfirmar.grid(row=7, column=1, sticky="news")
-
-        botonCancelar = ttk.Button(self.ventana, text="Cancelar", command= self.cancelarVentana)
-        botonCancelar.grid(row=7, column=3, sticky="news")
-        self.opcionVar = tk.IntVar()  # Variable de control para almacenar el valor seleccionado
-
-        radioOpcion1 = ttk.Radiobutton(self.ventana, text="Eliminar proveedor", variable=self.opcionVar, value=1)
-        radioOpcion1.grid(row=1, column=1, columnspan=3, sticky="news")
-
-        radioOpcion2 = ttk.Radiobutton(self.ventana, text="Eliminar productos seleccionados", variable=self.opcionVar, value=2)
-        radioOpcion2.grid(row=3, column=1, columnspan=3, sticky="news")
-
-        radioOpcion3 = ttk.Radiobutton(self.ventana, text="Eliminar todos los productos", variable=self.opcionVar, value=3)
-        radioOpcion3.grid(row=5, column=1, columnspan=3, sticky="news")
-
-        self.clase = tk.IntVar()
+        self.ventana.deiconify()
 
     
     def eliminaRegistro(self):
