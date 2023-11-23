@@ -340,6 +340,7 @@ class Inventario:
         #nota: esta funcion ocurre antes de que se le aplicen cambios al entry por el usuario
         
         if event.type == 1: return #cuando hace click en el entry no debe hacer nada
+        if event.keysym == "Tab": return #no hacer nada cuando se presiona tab
         brk = False #si es True interrumpe el cambio de valores a self.fecha
         position = self.fecha.index("insert") #El indice donde se encuentra el cusor
         
