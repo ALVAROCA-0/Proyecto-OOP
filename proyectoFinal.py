@@ -559,7 +559,7 @@ class Inventario:
         completado = False
         WHERE = f'WHERE IdNitProv = ?'
         registroActual = self.runQuery(
-            f'SELECT Ciudad,RazonSocial FROM Proveedor {WHERE};',
+            f'SELECT Ciudad,Razon_Social FROM Proveedor {WHERE};',
             (id,)
             ).fetchone()
         if not registroActual:
@@ -571,7 +571,7 @@ class Inventario:
         cambiar = []
         parametros = []
         if razon != registroActual[0]: #añadir razon a datos a cambiar si es el caso
-            cambiar.append(f'RazonSocial = ?')
+            cambiar.append(f'Razon_Social = ?')
             parametros.append(razon)
         if ciudad != registroActual[1]: #añadir ciudad a datos a cambiar si es el caso
             cambiar.append(f'Ciudad = ?')
@@ -698,10 +698,14 @@ class Inventario:
             mssg.showerror("Error Id", "El campo Id/Nit esta vacio")
         else:
             # obtiene el registro de proveedor con el id
-            idValues = self.runQuery(
-                'SELECT Ciudad,Razon_Social FROM Proveedor WHERE idNitProv = ?',
-                (id,)
-                ).fetchone()
+            try:
+                idValues = self.runQuery(
+                    'SELECT Ciudad,Razon_Social FROM Proveedor WHERE idNitProv = ?',
+                    (id,)
+                    ).fetchone()
+            except:
+                mssg.showerror("Error", "Algo salio mal al hacer la busqueda")
+                return
             if idValues:
                 self.leeTreeProductos(id)
                 self.ciudad.delete(0,'end')
@@ -723,7 +727,7 @@ class Inventario:
             else:
                 # obtiene el registro de proveedor con el id
                 idValues = self.runQuery(
-                    'SELECT Ciudad,RazonSocial FROM Proveedor WHERE idNitProv = ?',
+                    'SELECT Ciudad,Razon_Social FROM Proveedor WHERE idNitProv = ?',
                     (id,)
                     ).fetchone()
                 if idValues: #si exsiste un registro con esa id subir esos datos al mockup
