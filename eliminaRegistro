@@ -1,0 +1,101 @@
+def eliminaRegistro(self):
+        '''Elimina un Registro en la BD'''
+        idNit = self.idNit.get()
+
+        if self.opcion_var.get() == 1:
+            #validaciones----------------------------------------------------------------
+            if idNit == "": '''Valida que el Entry de IdNit no este vacio '''
+                mssg.showerror("Eliminacion fallida", "No ha sido proporcionado un IdNit existente")
+                self.cancelar_ventana()
+                return
+
+            consulta = self.run_Query("SELECT * FROM Proveedor WHERE IdNitProv = ?",(idNit,)).fetchall()
+            if not consulta: '''Valida que exista un proveedor con el IdNit proporcionado'''
+                mssg.showerror("Eliminacion fallida", "No ha sido proporcionado un IdNit valido para eliminar")
+                self.cancelar_ventana()
+                return
+
+            '''Se hace el proceso de eliminacion con sus puntos de confirmacion'''
+            valida_Consulta = mssg.askokcancel("Confirmacion",f"Se eliminara el proveedor con el id {idNit} y todos sus productos asociados")
+            if valida_Consulta:
+                try:
+                    self.run_Query("DELETE FROM Productos WHERE IdNit = ? ",(idNit,))
+                except:
+                    mssg.showerror("Eliminacion Fallida","Ha habido un error al eliminar los productos asociados al Proveedor")
+                else:
+                    try:
+                        self.run_Query("DELETE FROM Proveedor WHERE IdNitProv = ?",(idNit,))
+                    except:
+                        mssg.showerror("Eliminacion Fallida","Ha habido un error al eliminar el Proveedor")
+                    else:
+                        mssg.showinfo("Eliminacion Completada",f"Se ha eliminado el Proveedor de IdNit = {idNit} y todos sus productos asociados")
+                        self.lee_treeProductos(idNit)
+            self.cancelar_ventana()
+
+        elif self.opcion_var.get() == 2:
+            #validacion------------------------------------------------------------------
+            if self.treeProductos.selection() == ():
+                mssg.showinfo("Advertencia","Debe seleccionar los elementos que desea eliminar")
+                self.cancelar_ventana()
+                return
+
+            #eliminacion-----------------------------------------------------------------
+            query = f"DELETE from Productos WHERE IdNit = ? and (" '''inicio del query que se actulizara con cada elemento seleccionado'''
+            mensaje_validacion = f"¿Esta seguro de eliminar los siguientes registros de la base de datos?\n" '''mensaje de la ventana emergente que se actulizara con cada elemento seleccionado'''
+            busqueda = self.treeProductos.item(self.treeProductos.selection()[0])['text'] '''idNit de los elemento a eliminar, para buscar al final del proceso'''
+
+            '''agrega los datos de cada seleccion a las variables que se van a ejecutar'''
+            parametros = []
+            for elemento in self.treeProductos.selection():
+                codigo = self.treeProductos.item(elemento)['values'][0]
+                parametros.append(codigo)
+                query += "Codigo = ? or "
+                mensaje_validacion += f"IdNit = {busqueda}, Codigo = {codigo}\n"
+
+            query = query[:-4] '''limpia el texto del query que se va a ejecutar'''
+            query += ")" '''cierra el parentesis donde estan todos los codigos'''
+            valida_Consulta = mssg.askokcancel("Confirmacion",mensaje_validacion) 
+
+            if valida_Consulta:
+                try:
+                    self.run_Query(query, (busqueda,*parametros))
+                except:
+                    mssg.showerror("Eliminacion fallida", "No se pudo eliminar los datos seleccionados de la base de datos")
+                else:
+                    mssg.showinfo("Eliminacion Terminada","Se han eliminado los productos seleccionados de la base de datos")
+                self.lee_treeProductos(busqueda) 
+            self.cancelar_ventana()
+
+        elif self.opcion_var.get() == 3:
+            #validacion------------------------------------------------------------------
+            if idNit == "": 
+                mssg.showerror("Eliminacion fallida", "No ha sido proporcionado un IdNit valido para eliminar")
+                self.cancelar_ventana()
+                return
+
+            consulta = self.run_Query("SELECT * FROM Proveedor WHERE IdNitProv = ?",(idNit,)).fetchall()
+            if not consulta: '''Valida que exista un proveedor con el IdNit proporcionado'''
+                mssg.showerror("Eliminacion fallida", "No ha sido proporcionado un IdNit existente")
+                self.cancelar_ventana()
+                return
+            '''Valida que existan Productos asociados al IdNit proporcionado'''
+            consulta_Proveedor = self.run_Query("SELECT * FROM Productos WHERE IdNit = ?",(idNit,)).fetchall()
+            if not consulta_Proveedor:
+                mssg.showerror("Eliminacion Fallida","No existen Productos asociados al Proveedor proporcionado")
+                self.cancelar_ventana()
+                return
+
+            #eliminacion-----------------------------------------------------------------
+            '''Ejecuta la eliminacion de todos los productos asociados al Proveedor proporcionado, con su respectiva confirmacion'''
+            valida_Consulta = mssg.askokcancel("Confirmacion",f"Se eliminaran {len(consulta_Proveedor)} Productos asociados al Proveedor {idNit}")
+
+            if valida_Consulta:
+                try:
+                    self.run_Query("DELETE FROM Productos WHERE IdNit = ?",(idNit,))
+                except:
+                    mssg.showerror("Eliminacion Fallida","No fue posible eliminar los productos")
+                else:
+                    mssg.showinfo("Eliminacion Terminada",f"Se han eliminado {len(consulta_Proveedor)} Productos de la tabla Productos")
+                    self.lee_treeProductos(idNit)
+            '''sin importar que camino toma la rutina, al final se cierra la ventana'''
+            self.cancelar_ventana()
