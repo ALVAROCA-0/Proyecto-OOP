@@ -1,0 +1,33 @@
+def selecEliminar(self):
+        '''Rutina para cuando se presiona Eliminar
+        Se elimina el Toplevel si existe, y se crea uno nuevo con los widgets necesarios para hacer la eliminacion de los 
+        productos/proveedores'''
+
+        self.cancelar_ventana()
+        self.ventana = tk.Toplevel()
+        self.ventana.title("Confirmacion")
+        self.ventana.geometry("300x300")
+        self.ventana.minsize(200,150)
+        self.ventana.maxsize(300,300)
+
+        self.ventana.rowconfigure((0,2,4,6),weight=2)
+        self.ventana.rowconfigure((8,), weight=1)
+        self.ventana.columnconfigure((0,2,4),weight=1)
+
+        boton_confirmar = tk.Button(self.ventana, text="Confirmar", command=self.eliminaRegistro)
+        boton_confirmar.grid(row=7, column=1, sticky="news")
+
+        boton_cancelar = tk.Button(self.ventana, text="Cancelar", command= self.cancelar_ventana)
+        boton_cancelar.grid(row=7, column=3, sticky="news")
+        self.opcion_var = tk.IntVar()  # Variable de control para almacenar el valor seleccionado
+
+        radio_opcion1 = tk.Radiobutton(self.ventana, text="Eliminar proveedor", variable=self.opcion_var, value=1)
+        radio_opcion1.grid(row=1, column=1, columnspan=3, sticky="news")
+
+        radio_opcion2 = tk.Radiobutton(self.ventana, text="Eliminar productos seleccionados", variable=self.opcion_var, value=2)
+        radio_opcion2.grid(row=3, column=1, columnspan=3, sticky="news")
+
+        radio_opcion3 = tk.Radiobutton(self.ventana, text="Eliminar todos los productos", variable=self.opcion_var, value=3)
+        radio_opcion3.grid(row=5, column=1, columnspan=3, sticky="news")
+
+        self.clase = tk.IntVar()
