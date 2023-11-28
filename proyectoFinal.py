@@ -137,7 +137,7 @@ class Inventario:
         for i in ("Button-1", "Left", "Right", "Key","BackSpace", "space"):
             self.fecha.bind(f"<{i}>", self.validaFecha)
         self.fecha.bind("<FocusOut>", self.fechaFocusOut)
-        self.fecha.bind("<FocusIn>", self.fechaFocusIn)
+        self.fecha.bind("<FocusIn>", self.validaFecha)
         self.fecha_mal = False
         
         #Separador
@@ -342,67 +342,68 @@ class Inventario:
         if event.type == 1: return #cuando hace click en el entry no debe hacer nada
         if event.keysym == "Tab": return #no hacer nada cuando se presiona tab
         brk = False #si es True interrumpe el cambio de valores a self.fecha
-        position = self.fecha.index("insert") #El indice donde se encuentra el cusor
+        posicion = self.fecha.index("insert") #El indice donde se encuentra el cusor
         
         seleccionado = False
         #si esta selecionada parte del texto
         if self.fecha.select_present():
             seleccionado = True
-            position = self.fecha.index("sel.first")
+            posicion = self.fecha.index("sel.first")
             final = self.fecha.index("sel.last")
             self.fecha.select_clear()
-            self.fecha.icursor(position)
-            brk = True #para que la multiple seleccion no borre más datos del entry
+            self.fecha.icursor(posicion)
+            brk = True
         #modificacion del texto dentro del entry -----------------------------------
         if event.keysym.isnumeric(): #si esta entrando un numero
             #quitar el caracter que estaba en ese espacio
-            if position < 10 and not position in (2,5):
-                self.fecha.delete(position, position+1)
+            if posicion < 10 and not posicion in (2,5):
+                self.fecha.delete(posicion, posicion+1)
                 #si se seleccionó texto añadir manualmente el caracter
-                if seleccionado: self.fecha.insert(position, event.char)
-                position += 1
+                if seleccionado: self.fecha.insert(posicion, event.char)
+                posicion += 1
             #pero si esta al final del entry no permitir la entrada del caracter
             else:
                 brk = True
         #si esta borrando
         elif event.keysym == "BackSpace":
-            #si se seleccionó texto moverlo hacia adelante (se maneja mejor)
+            #si se selecciono texto y se esta borrando borrar lo seleccionado
             if seleccionado:
-                self.fecha.delete(position,final)
-                print(position,final)
-                self.fecha.insert(position,"dd/mm/aaaa"[position:final])
-                self.fecha.icursor(position)
-            elif position > 0:
+                self.fecha.delete(posicion,final)
+                print(posicion,final)
+                self.fecha.insert(posicion,"dd/mm/aaaa"[posicion:final])
+                self.fecha.icursor(posicion)
+            elif posicion > 0:
                 #reemplazar caracter a borrar con el correspondiente ('d', 'm', o 'a')
                 char = "a"
-                if position <= 3: char = "d"
-                elif position <= 6: char = "m" 
+                if posicion <= 3: char = "d"
+                elif posicion <= 6: char = "m" 
                 #si esta despues de un '/' mover el cursor hacia atras para no borrarlo
-                if position in (3, 6): position -= 1 
-                position -= 1 #mover el cusor una posicion atras
-                self.fecha.delete(position,position+1)
-                self.fecha.insert(position, char)
+                if posicion in (3, 6): posicion -= 1 
+                posicion -= 1 #mover el cusor una posicion atras
+                self.fecha.delete(posicion,posicion+1)
+                self.fecha.insert(posicion, char)
                 #reposicionar el cursor despues de modificar el entry
-                self.fecha.icursor(position)
+                self.fecha.icursor(posicion)
                 brk = True
         elif len(event.char) >= 1 and int(event.type) != 4:
             #borra el ultimo caracter digitado
             brk = True
         #movimiento por flechas ----------------------------------------------------
-        if event.keysym == "Left": position -= 1
-        elif event.keysym == "Right": position += 1
+        if event.keysym == "Left": posicion -= 1
+        elif event.keysym == "Right": posicion += 1
         #cuando el cursor llega detras de un '/' lo mueve adelante de el
         #a no ser de que halla texto seleccionado
-        if position in (2, 5) and not seleccionado:
-            mover = position+(-1 if event.keysym == "Left" else 1)
-            self.fecha.after_idle(self.fecha.icursor,mover)
-            position = mover
+        if posicion in (2, 5) and not seleccionado:
+            #si se esta moviendo a la izquierda -1 de resto se esta moviendo a la derecha +1
+            posicion += -1 if event.keysym == "Left" else 1
+            #after idle para que se ejecute despues de que se le apliquen todos los cambios a fecha
+            self.fecha.after_idle(self.fecha.icursor,posicion)
         
         #mostrar validez de fecha --------------------------------------------------
         valorFecha = self.fecha.get()
         if event.char.isnumeric():
-            position = self.fecha.index("insert")#volver a la posicion del cursor original
-            valorFecha = valorFecha[:position]+event.char+valorFecha[position:]
+            posicion = self.fecha.index("insert")#volver a la posicion del cursor original
+            valorFecha = valorFecha[:posicion]+event.char+valorFecha[posicion:]
         #si todos los valores de fecha son numeros (exepto los '/') osea ya es una fecha
         if (valorFecha.replace("/","")).isnumeric():
             if self.isFechaValida(valorFecha)[0]:
