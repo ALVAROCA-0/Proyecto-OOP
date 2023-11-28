@@ -19,7 +19,6 @@ class Inventario:
     def __init__(self, master=None):
         self.path = r'X:\Users\ferna\Documents\UNal\Alumnos\2023_S2\ProyInventario'
         self.dbName = self.path + r'\Inventario.db'
-        self.dbName = "Inventario.db" # esto se debe quitar
         # Dimensiones de la pantalla
         ancho=800
         alto=700
@@ -814,7 +813,7 @@ class Inventario:
         '''Elimina un Registro en la BD'''
         idNit = self.idNit.get()
 
-        if self.opcionVar.get() == 1:
+        if self.opcionVar.get() == 1: #se esta eliminando un proveedor
             #validaciones----------------------------------------------------------------
             if idNit == "": # Valida que el Entry de IdNit no este vacio
                 mssg.showerror("Eliminacion fallida", "No ha sido proporcionado un IdNit existente")
@@ -844,7 +843,7 @@ class Inventario:
                         self.leeTreeProductos(idNit)
             self.cancelarVentana()
 
-        elif self.opcionVar.get() == 2:
+        elif self.opcionVar.get() == 2: #eliminar seleccionados
             #validacion------------------------------------------------------------------
             if self.treeProductos.selection() == ():
                 mssg.showinfo("Advertencia","Debe seleccionar los elementos que desea eliminar")
@@ -880,7 +879,7 @@ class Inventario:
                     mssg.showinfo("Eliminacion Terminada","Se han eliminado los productos seleccionados de la base de datos")
                 self.leeTreeProductos(busqueda)
 
-        elif self.opcionVar.get() == 3:
+        elif self.opcionVar.get() == 3: #eliminar todos los productos de un proveedor
             #validacion------------------------------------------------------------------
             if idNit == "": 
                 mssg.showerror("Eliminacion fallida", "No ha sido proporcionado un IdNit valido para eliminar")
