@@ -1,5 +1,15 @@
 # !/usr/bin/python3
 # -*- coding: utf-8 -*-
+
+"""
+Autores:
+    -Álvaro Andrés Romero Castro: 1032876668
+    -Federico Hernandez Montaño: 1011084415
+    -Samuel Camilo Niño Rincón: 1052838537
+    -Angel Manuel Cortavarria Salas: 1044213907
+    -Christian Cardenas: 1013107979
+"""
+
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import messagebox as mssg
@@ -39,7 +49,6 @@ class Inventario:
         self.frm1 = ttk.Frame(self.mainFrame)
         self.frm1.configure(height=200, width=200)
         self.frm1.columnconfigure((0,3,4,6,7,8,9,10,11,13,14,15), weight=1)
-        # self.frm1.columnconfigure((3,4,7,9,10,14), minsize=30)
         self.frm1.rowconfigure((1,2,5,11), weight=1)
         self.frm1.rowconfigure((0,4,7), weight=1, minsize=70)
         self.frm1.rowconfigure((11,), weight=1, minsize=300)
@@ -228,23 +237,27 @@ class Inventario:
         self.tabs.add(self.mainFrame, compound="center", text='Ingreso de datos')
         self.tabs.pack(side="top", expand=True, fill="both")
         
-        #ventana emergente eliminar
+        #ventana emergente eliminar------------------------------------------------------
         self.ventana = tk.Toplevel()
         self.ventana.title("Confirmacion")
         self.ventana.geometry("300x300")
         self.ventana.minsize(200,150)
         self.ventana.maxsize(300,300)
-        self.ventana.protocol("WM_DELETE_WINDOW",self.cancelarVentana)
+        self.ventana.protocol("WM_DELETE_WINDOW",self.cancelarVentana) #en vez de cerrar esconder la ventana
 
+        #configuracion columnas y filas------------------------------
         self.ventana.rowconfigure((0,2,4,6),weight=2)
         self.ventana.rowconfigure((8,), weight=1)
         self.ventana.columnconfigure((0,2,4),weight=1)
          
+        #botones para confirmar opcion-------------------------------
         botonConfirmar = ttk.Button(self.ventana, text="Confirmar", command=self.eliminaRegistro)
         botonConfirmar.grid(row=7, column=1, sticky="news")
 
         botonCancelar = ttk.Button(self.ventana, text="Cancelar", command= self.cancelarVentana)
         botonCancelar.grid(row=7, column=3, sticky="news")
+        
+        #botones para seleccionar opcion-----------------------------
         self.opcionVar = tk.IntVar()  # Variable de control para almacenar el valor seleccionado
 
         radioOpcion1 = ttk.Radiobutton(self.ventana, text="Eliminar proveedor", variable=self.opcionVar, value=1)
@@ -255,7 +268,7 @@ class Inventario:
 
         radioOpcion3 = ttk.Radiobutton(self.ventana, text="Eliminar todos los productos", variable=self.opcionVar, value=3)
         radioOpcion3.grid(row=5, column=1, columnspan=3, sticky="news")
-        self.ventana.withdraw()
+        self.ventana.withdraw() #para que empiece escondido
 
     def run(self):
         """Fución de manejo de eventos del sistema"""
@@ -301,7 +314,7 @@ class Inventario:
         elif mes in (1,3,5,7,9,10,12): maxDia = 30
         if dia < 1:
             return False, "El día debe ser un número entero positivo"
-        if dia > maxDia or dia < 0:
+        elif dia > maxDia:
             mes_str = ( "Enero", "Febrero", "Marzo", "Abril", "Mayo",
                         "Junio", "Julio", "Agosto", "Septiembre",
                         "Octubre", "Noviembre", "Diciembre"
@@ -310,11 +323,15 @@ class Inventario:
         return True, ""
     
     def fechaFocusIn(self, _):
-        """Se ejecuta cuando se entra al Entry fecha"""
-        self.fecha.after_idle(self.fecha.icursor,0) #pone el cusor al inicio del entry
+        """Se ejecuta cuando se entra al Entry fecha
+        
+        solo pone el cursor al inicio del entry"""
+        self.fecha.icursor(0) #pone el cusor al inicio del entry
     
     def fechaFocusOut(self, event):
-        """Se ejecuta cuando se sale del Entry fecha"""
+        """Se ejecuta cuando se sale del Entry fecha
+        
+        le avisa al usuario si esta incorrecta la fecha"""
         valorFecha = self.fecha.get()
         valida = self.isFechaValida(valorFecha)
         if (not valida[0]) and valorFecha.replace("/","").isnumeric():
@@ -355,7 +372,6 @@ class Inventario:
             #si se selecciono texto y se esta borrando borrar lo seleccionado
             if seleccionado:
                 self.fecha.delete(posicion,final)
-                print(posicion,final)
                 self.fecha.insert(posicion,"dd/mm/aaaa"[posicion:final])
                 self.fecha.icursor(posicion)
             elif posicion > 0:
@@ -431,6 +447,21 @@ class Inventario:
         #valores de Productos
         tree_items = self.treeProductos.item(seleccion)
         itemsProductos = tree_items["values"]
+        #datos Proveedor-----------------------------------------------------------------
+        idValues = self.runQuery(
+            'SELECT Ciudad,Razon_Social FROM Proveedor WHERE idNitProv = ?',
+            (tree_items["text"],)
+            ).fetchone()
+        if not idValues:
+            mssg.showerror("Error Id", f"No existe el id: {tree_items['text']}")
+            return
+        self.razonSocial["state"] = "normal"
+        self.ciudad["state"] = "normal"
+        self.ciudad.delete(0,'end')
+        self.razonSocial.delete(0,'end')
+        self.ciudad.insert(0, "" if idValues[0]==None else idValues[0])
+        self.razonSocial.insert(0, "" if idValues[1]==None else idValues[1])
+        #datos productos-----------------------------------------------------------------
         self.idNit.insert(0, tree_items["text"]) #"text" porque es el primer campo
         self.codigo.insert(0,itemsProductos[0])
         self.descripcion.insert(0,itemsProductos[1])
@@ -441,7 +472,7 @@ class Inventario:
         self.fecha.insert(0, itemsProductos[5])
     
     # Operaciones con la base de datos
-    def run_Query(self, query, parametros = ()) -> sqlite3.Cursor:
+    def runQuery(self, query, parametros = ()) -> sqlite3.Cursor:
         ''' Función para ejecutar los Querys a la base de datos '''
         with sqlite3.connect(self.dbName) as conn:
             cursor = conn.cursor()
@@ -451,14 +482,14 @@ class Inventario:
 
     def leeTreeProductos(self, id:str):
         ''' Limpia la Tabla tablaTreeView y Carga los datos de nuevo
-        Si se provee un id solo carga las filas con ese id/Nit'''
+        parametro id: carga las filas con ese id/Nit'''
         tablaTreeView = self.treeProductos.get_children()
         for linea in tablaTreeView:
             self.treeProductos.delete(linea) # Límpia la filas del TreeView
         
         # Seleccionando los datos de la BD
         query = f"SELECT * FROM Productos WHERE IdNit = ? ORDER BY IdNit;"
-        dbRows = self.run_Query(query,(id,)).fetchall() # db_rows contine la vista del query
+        dbRows = self.runQuery(query,(id,)).fetchall() # db_rows contine la vista del query
         
         # Insertando los datos de la BD en treeProductos de la pantalla
         for row in dbRows:
@@ -489,7 +520,7 @@ class Inventario:
             (3, "Precio", precio),
             (4, "Fecha", fecha)
         )
-        registroActual = self.run_Query(
+        registroActual = self.runQuery(
             f'SELECT Descripcion, Und, Cantidad, Precio, Fecha FROM Productos {WHERE};',
             (id, codigo)
             ).fetchone()
@@ -503,16 +534,15 @@ class Inventario:
         parametros = []
         #va atravez de los datos que se pueden modificar
         for i,k,v in datos:
-            #si el valor en la base de datos no es igual al dato en el entry
+            #si el valor en la base de datos no es igual al dato en el entry se debe cambiar el registro
             if v != registroActual[i]:
-                #se debe cambiar el registro
                 cambiar.append(f'{k} = ?')
                 parametros.append(v)
                 
         if cambiar and mssg.askokcancel("Confirmación","¿Desea editar la tabla Productos?"):
             cambiar = ", ".join(cambiar)
             try:
-                self.run_Query(f'UPDATE Productos SET {cambiar} {WHERE};',(*parametros,id,codigo))
+                self.runQuery(f'UPDATE Productos SET {cambiar} {WHERE};',(*parametros,id,codigo))
                 completado = True
             except:
                 mssg.showerror("Edicion fallida", "Fallo el cambio de datos en la tabla Productos")
@@ -529,7 +559,7 @@ class Inventario:
         Retorna true si se aplico el cambio correctamente"""
         completado = False
         WHERE = f'WHERE IdNitProv = ?'
-        registroActual = self.run_Query(
+        registroActual = self.runQuery(
             f'SELECT Ciudad,RazonSocial FROM Proveedor {WHERE};',
             (id,)
             ).fetchone()
@@ -541,17 +571,17 @@ class Inventario:
         #valores a cambiar---------------------------------------------------------------
         cambiar = []
         parametros = []
-        if razon != registroActual[0]:
+        if razon != registroActual[0]: #añadir razon a datos a cambiar si es el caso
             cambiar.append(f'RazonSocial = ?')
             parametros.append(razon)
-        if ciudad != registroActual[1]:
+        if ciudad != registroActual[1]: #añadir ciudad a datos a cambiar si es el caso
             cambiar.append(f'Ciudad = ?')
             parametros.append(ciudad)
         #Aplica los cambios--------------------------------------------------------------
         if cambiar and mssg.askokcancel("Confirmación","¿Desea editar la tabla Proveedor?"):
             cambiar = ", ".join(cambiar)
             try:
-                self.run_Query(
+                self.runQuery(
                     f'UPDATE Proveedor SET {cambiar} {WHERE};',
                     (*parametros, id)
                    )
@@ -574,29 +604,28 @@ class Inventario:
             invalido += "El ID debe ser menor a 15\n"
         elif id == "":
             invalido += "El campo ID no puede estar vacio\n"
-        id = id.replace('"','""')
         
-        codigo = self.codigo.get().replace('"','""')
+        codigo = self.codigo.get()
         if codigo != "":
             if (
                 self.actualiza == None and
-                self.run_Query(
+                self.runQuery(
                     'SELECT count(*) FROM Productos WHERE Codigo = ? AND IdNit = ?',
                     (codigo, id)
                     ).fetchone()[0] != 0
                 ):
                 invalido += f"El codigo {codigo} para el proveedor {id} ya existe, los codigos deben ser unicos\n"
-            #validadcion cantidad
+            #validacion cantidad
             cantidad = self.cantidad.get()
             if cantidad != "":
                 if (not cantidad.replace(".","").isnumeric()) or float(cantidad) < 0:
                     invalido += "Las cantidades deben ser números positivos\n"
-            #validadcion precio
+            #validacion precio
             precio = self.precio.get()
             if precio != "":
                 if (not precio.replace(".","").isnumeric()) or float(precio) < 0:
                     invalido += "Los precios deben ser números positivos\n"
-            #validadcion fecha
+            #validacion fecha
             fechaValida, porque = self.isFechaValida(self.fecha.get())
             if not fechaValida:
                 invalido += porque
@@ -618,22 +647,22 @@ class Inventario:
         precio: float,
         fecha: str) -> bool:
         '''Adiciona un producto a la BD. La validación debe ser True'''
-        
-        existe = False
-        if self.run_Query('SELECT count(*) FROM Proveedor WHERE IdNitProv = ?;',(id,)).fetchone()[0]:
-            if codigo == "":
+        #insertar datos a proveedor si es del caso---------------------------------------
+        #si ya existe un registro en proveedor con esa id
+        if self.runQuery('SELECT count(*) FROM Proveedor WHERE IdNitProv = ?;',(id,)).fetchone()[0]:
+            if codigo == "": #si se esta intentando añadir un proveedor
                 mssg.showerror("Error","Este proveedor ya existe, si desea editarlo presione editar")
                 return
-            elif bool(self.run_Query(
+            elif bool(self.runQuery(
                 'SELECT COUNT(*) FROM Productos WHERE idNit = ? AND Codigo = ?',
                 (id, codigo)
-                ).fetchone()[0]):
+                ).fetchone()[0]): #si ya existe un registro en productos con esa id y codigo
                 mssg.showerror("Error","Ya existe un producto con misma idNit y Codigo")
                 return
         else:
             if mssg.askokcancel("Confirmación","Desea añadir los datos a la tabla Proveedor?"):
                 try:
-                    self.run_Query(
+                    self.runQuery(
                         'INSERT INTO Proveedor VALUES(?, ?, ?);',
                         (id, razon, ciudad)
                         )
@@ -645,10 +674,11 @@ class Inventario:
             else:
                 mssg.showinfo("Cancelando", "Cancelando guardado de registro")
                 return
+        #insertar datos a productos si es del caso---------------------------------------
         if codigo != "" and mssg.askokcancel("Confirmacion", "Desea añadir los datos a Productos?"):
             rowProductos = (id, codigo, desc, unidad, cantidad, precio, fecha)
             try:
-                self.run_Query(
+                self.runQuery(
                     'INSERT INTO Productos VALUES(?,?,?,?,?,?,?);',
                     rowProductos
                     )
@@ -668,8 +698,9 @@ class Inventario:
         if id == "":
             mssg.showerror("Error Id", "El campo Id/Nit esta vacio")
         else:
-            idValues = self.run_Query(
-                'SELECT Ciudad,RazonSocial FROM Proveedor WHERE idNitProv = ?',
+            # obtiene el registro de proveedor con el id
+            idValues = self.runQuery(
+                'SELECT Ciudad,Razon_Social FROM Proveedor WHERE idNitProv = ?',
                 (id,)
                 ).fetchone()
             if idValues:
@@ -684,17 +715,19 @@ class Inventario:
     
     def editar(self, event: tk.Event=None) -> None:
         """Rutina para cuando se presiona editar"""
+        # obtiene la seleccion del tree
         seleccion = self.treeProductos.selection()
-        if len(seleccion) == 0:
+        if len(seleccion) == 0: #si no se selecciono nada
             id = self.idNit.get()
             if id == "":
                 mssg.showerror("Error editar", "Debe haber un IdNit para editar un Proveedor o seleccionar un registro a editar")
             else:
-                idValues = self.run_Query(
+                # obtiene el registro de proveedor con el id
+                idValues = self.runQuery(
                     'SELECT Ciudad,RazonSocial FROM Proveedor WHERE idNitProv = ?',
                     (id,)
                     ).fetchone()
-                if idValues:
+                if idValues: #si exsiste un registro con esa id subir esos datos al mockup
                     self.ciudad["state"] = "normal"
                     self.razonSocial["state"] = "normal"
                     self.ciudad.delete(0,'end')
@@ -704,13 +737,11 @@ class Inventario:
                     self.actualiza = True
                 else:
                     mssg.showerror("Error Id", f"No existe el id: {id}")
-        elif len(seleccion) == 1:
+        elif len(seleccion) == 1: #hay un registro seleccionado
             self.cargaDatos(seleccion[0])
             self.deseleccionarTree()
             self.idNit["state"] = "readonly"
             self.codigo["state"] = "readonly"
-            self.razonSocial["state"] = "normal"
-            self.ciudad["state"] = "normal"
             self.actualiza = seleccion[0]
         else: mssg.showerror("Error seleccion","Se debe seleccionar una sola fila para poder editar")
         
@@ -740,16 +771,15 @@ class Inventario:
             else: #si se esta editando un registro
                 self.editarProveedor(id,razon,ciudad)
                 if codigo != "":
+                    self.idNit["state"] = "normal"
+                    self.codigo["state"] = "normal"
                     if self.editarProductos(id,codigo,desc,unidad,cantidad,precio,fecha):
-                        self.idNit["state"] = "normal"
-                        self.codigo["state"] = "normal"
                         self.treeProductos.item(self.actualiza,values=datos)
                     else:
+                        self.actualiza = None
                         return
                 self.actualiza = None
-                self.limpiaCampos()
-                
-            
+                self.limpiaCampos()  
     
     def cancelar(self):
         """Cancela todos los procesos que puedan estar ocurriendo"""
@@ -765,16 +795,18 @@ class Inventario:
         self.btnBuscar["state"]="normal"
     
     def deseleccionarTree(self):
+        """deselecciona todos los campos del treeView"""
         seleccion = self.treeProductos.selection()
         if seleccion:
             self.treeProductos.selection_remove(*seleccion)
     
     def cancelarVentana(self):
+        """Esconde el topLevel de eliminar y resetea su variable"""
         self.ventana.withdraw()
         self.opcionVar.set(0)
-    #declara variable ventana
     
     def selecEliminar(self):
+        """Hace que se muestre el topLevel de eliminar"""
         self.ventana.deiconify()
 
     
@@ -789,7 +821,7 @@ class Inventario:
                 self.cancelarVentana()
                 return
 
-            consulta = self.run_Query("SELECT * FROM Proveedor WHERE IdNitProv = ?",(idNit,)).fetchall()
+            consulta = self.runQuery("SELECT * FROM Proveedor WHERE IdNitProv = ?",(idNit,)).fetchall()
             if not consulta: # Valida que exista un proveedor con el IdNit proporcionado
                 mssg.showerror("Eliminacion fallida", "No ha sido proporcionado un IdNit valido para eliminar")
                 self.cancelarVentana()
@@ -799,12 +831,12 @@ class Inventario:
             valida_Consulta = mssg.askokcancel("Confirmacion",f"Se eliminara el proveedor con el id {idNit} y todos sus productos asociados")
             if valida_Consulta:
                 try:
-                    self.run_Query("DELETE FROM Productos WHERE IdNit = ? ",(idNit,))
+                    self.runQuery("DELETE FROM Productos WHERE IdNit = ? ",(idNit,))
                 except:
                     mssg.showerror("Eliminacion Fallida","Ha habido un error al eliminar los productos asociados al Proveedor")
                 else:
                     try:
-                        self.run_Query("DELETE FROM Proveedor WHERE IdNitProv = ?",(idNit,))
+                        self.runQuery("DELETE FROM Proveedor WHERE IdNitProv = ?",(idNit,))
                     except:
                         mssg.showerror("Eliminacion Fallida","Ha habido un error al eliminar el Proveedor")
                     else:
@@ -820,7 +852,8 @@ class Inventario:
                 return
 
             #eliminacion-----------------------------------------------------------------
-            query = f"DELETE from Productos WHERE IdNit = ? and (" '''inicio del query que se actulizara con cada elemento seleccionado'''
+            # inicio del query que se actulizara con cada elemento seleccionado
+            query = f"DELETE from Productos WHERE IdNit = ? and ("
             # mensaje de la ventana emergente que se actulizara con cada elemento seleccionado
             mensaje_validacion = f"¿Esta seguro de eliminar los siguientes registros de la base de datos?\n" 
             # idNit de los elemento a eliminar, para buscar al final del proceso
@@ -840,13 +873,12 @@ class Inventario:
 
             if valida_Consulta:
                 try:
-                    self.run_Query(query, (busqueda,*parametros))
+                    self.runQuery(query, (busqueda,*parametros))
                 except:
                     mssg.showerror("Eliminacion fallida", "No se pudo eliminar los datos seleccionados de la base de datos")
                 else:
                     mssg.showinfo("Eliminacion Terminada","Se han eliminado los productos seleccionados de la base de datos")
-                self.leeTreeProductos(busqueda) 
-            self.cancelarVentana()
+                self.leeTreeProductos(busqueda)
 
         elif self.opcionVar.get() == 3:
             #validacion------------------------------------------------------------------
@@ -855,13 +887,13 @@ class Inventario:
                 self.cancelarVentana()
                 return
 
-            consulta = self.run_Query("SELECT * FROM Proveedor WHERE IdNitProv = ?",(idNit,)).fetchall()
+            consulta = self.runQuery("SELECT * FROM Proveedor WHERE IdNitProv = ?",(idNit,)).fetchall()
             if not consulta: #Valida que exista un proveedor con el IdNit proporcionado
                 mssg.showerror("Eliminacion fallida", "No ha sido proporcionado un IdNit existente")
                 self.cancelarVentana()
                 return
             # Valida que existan Productos asociados al IdNit proporcionado
-            consulta_Proveedor = self.run_Query("SELECT * FROM Productos WHERE IdNit = ?",(idNit,)).fetchall()
+            consulta_Proveedor = self.runQuery("SELECT * FROM Productos WHERE IdNit = ?",(idNit,)).fetchall()
             if not consulta_Proveedor:
                 mssg.showerror("Eliminacion Fallida","No existen Productos asociados al Proveedor proporcionado")
                 self.cancelarVentana()
@@ -873,14 +905,20 @@ class Inventario:
 
             if valida_Consulta:
                 try:
-                    self.run_Query("DELETE FROM Productos WHERE IdNit = ?",(idNit,))
+                    self.runQuery("DELETE FROM Productos WHERE IdNit = ?",(idNit,))
                 except:
                     mssg.showerror("Eliminacion Fallida","No fue posible eliminar los productos")
                 else:
                     mssg.showinfo("Eliminacion Terminada",f"Se han eliminado {len(consulta_Proveedor)} Productos de la tabla Productos")
                     self.leeTreeProductos(idNit)
-            # sin importar que camino toma la rutina, al final se cierra la ventana
-            self.cancelarVentana()
+        # sin importar que camino toma la rutina
+        self.cancelarVentana()
+        print("algo")
+        self.razonSocial["state"] = "normal"
+        self.ciudad["state"] = "normal"
+        self.idNit["state"] = "normal"
+        self.codigo["state"] = "normal"
+        self.actualiza = None
 
 if __name__ == "__main__":
     app = Inventario()
