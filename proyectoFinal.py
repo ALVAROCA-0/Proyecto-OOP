@@ -14,11 +14,12 @@ import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import messagebox as mssg
 import sqlite3
+from os.path import dirname
 
 class Inventario:
     def __init__(self, master=None):
-        self.path = r'X:\Users\ferna\Documents\UNal\Alumnos\2023_S2\ProyInventario'
-        self.dbName = self.path + r'\Inventario.db'
+        self.path = dirname(__file__)
+        self.dbName = self.path + r'\BD\Inventario.db'
         # Dimensiones de la pantalla
         ancho=800
         alto=700
@@ -28,8 +29,8 @@ class Inventario:
         self.win = tk.Tk()
         self.win.minsize(int(ancho/1.25), alto//2)
         self.win.geometry(f"{ancho}x{alto}")
-        icon_name = "imgs/f2.ico"
-        self.win.iconbitmap(icon_name)
+        iconName = self.path + r"\imgs\f2.ico"
+        self.win.iconbitmap(iconName)
         self.win.title("Manejo de Proveedores")
 
         #Centra la pantalla
@@ -243,6 +244,7 @@ class Inventario:
         self.ventana.minsize(200,150)
         self.ventana.maxsize(300,300)
         self.ventana.protocol("WM_DELETE_WINDOW",self.cancelarVentana) #en vez de cerrar esconder la ventana
+        self.ventana.iconbitmap(iconName)
 
         #configuracion columnas y filas------------------------------
         self.ventana.rowconfigure((0,2,4,6),weight=2)
