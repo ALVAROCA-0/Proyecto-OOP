@@ -15,7 +15,6 @@ import tkinter.ttk as ttk
 from tkinter import messagebox as mssg
 import sqlite3
 from os.path import dirname
-from os import getcwd
 
 class Inventario:
     def __init__(self, master=None):
