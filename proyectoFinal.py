@@ -15,6 +15,7 @@ import tkinter.ttk as ttk
 from tkinter import messagebox as mssg
 import sqlite3
 from os.path import dirname
+from os import getcwd
 
 class Inventario:
     def __init__(self, master=None):
@@ -716,7 +717,7 @@ class Inventario:
                 self.razonSocial.insert(0, "" if idValues[1]==None else idValues[1])
                 self.ciudad["state"] = "readonly"
                 self.razonSocial["state"] = "readonly"
-            else: mssg.showerror("Error Id", f"No existe el id: {id}")
+            else: mssg.showinfo("Error Id", f"No existe el id: {id}")
     
     def editar(self, event: tk.Event=None) -> None:
         """Rutina para cuando se presiona editar"""
